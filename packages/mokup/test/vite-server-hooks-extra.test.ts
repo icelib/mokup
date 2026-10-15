@@ -290,7 +290,7 @@ describe('vite server hooks extra coverage', () => {
     await swMiddleware?.({ url: '/mokup-sw.js' }, res, vi.fn())
     expect(res.statusCode).toBe(500)
     expect(logger.error).toHaveBeenCalled()
-    expect(middlewareMocks.createMiddleware).toHaveBeenCalled()
+    expect(middlewareMocks.createMiddleware).not.toHaveBeenCalled()
     swMocks.buildSwScript.mockImplementation(() => 'self.skipWaiting()')
   })
 })

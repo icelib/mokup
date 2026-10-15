@@ -6,13 +6,16 @@ describe('migration guards', () => {
     const violations = evaluateMigrationGuards({
       packageEntries: [
         {
-          file: 'packages/example/package.json',
+          file: 'packages/shared/package.json',
           pkg: {
-            name: '@mokup/example',
+            name: '@mokup/shared',
             type: 'module',
             private: false,
+            dependencies: {
+              rolldown: '1.2.14',
+            },
             engines: {
-              node: '^20.19.0 || >=22.12.0',
+              node: '>=22.12.0',
             },
             scripts: {
               build: 'tsdown',
@@ -27,10 +30,19 @@ describe('migration guards', () => {
             },
           },
         },
+        {
+          file: 'apps/example/package.json',
+          pkg: {
+            private: true,
+            engines: {
+              node: '^24.11.0 || >=26.0.0',
+            },
+          },
+        },
       ],
       rootPackage: {
         engines: {
-          node: '^20.19.0 || >=22.12.0',
+          node: '^24.11.0 || >=26.0.0',
         },
       },
       scanEntries: [
@@ -44,8 +56,13 @@ describe('migration guards', () => {
         },
       ],
       workspaceConfig: {
+        catalogs: {
+          default: {
+            rolldown: '1.2.14',
+          },
+        },
         overrides: {
-          rolldown: '1.2.0',
+          rolldown: '1.2.14',
         },
       },
     })
@@ -58,7 +75,7 @@ describe('migration guards', () => {
       packageEntries: [],
       rootPackage: {
         engines: {
-          node: '^20.19.0 || >=22.12.0',
+          node: '^24.11.0 || >=26.0.0',
         },
       },
       scanEntries: [
@@ -68,13 +85,178 @@ describe('migration guards', () => {
         },
       ],
       workspaceConfig: {
+        catalogs: {
+          default: {
+            rolldown: '1.2.14',
+          },
+        },
         overrides: {
-          rolldown: '1.2.0',
+          rolldown: '1.2.14',
         },
       },
     })
 
     expect(violations).toEqual([])
+  })
+
+  it.each([
+    {
+      location: 'migration documentation',
+      file: 'apps\\mokup-docs\\docs\\getting-started\\upgrade-to-v1.md',
+      content: `import { build } from '@mokup/shared/esbuild'\nconst { mokup } = require('mokup')\nmodule.exports = mokup({})\n`,
+      expected: [],
+    },
+    {
+      location: 'public documentation',
+      file: 'apps\\mokup-docs\\docs\\reference\\webpack-plugin.md',
+      content: `const { mokupWebpack } = require('mokup/webpack')\nmodule.exports = mokupWebpack({})\n`,
+      expected: [
+        'apps/mokup-docs/docs/reference/webpack-plugin.md: public docs must use ESM config examples instead of module.exports',
+        'apps/mokup-docs/docs/reference/webpack-plugin.md: public docs must use ESM import examples for published mokup packages',
+      ],
+    },
+  ])('checks Windows paths consistently for $location', ({ file, content, expected }) => {
+    const violations = evaluateMigrationGuards({
+      packageEntries: [],
+      rootPackage: {
+        engines: {
+          node: '^24.11.0 || >=26.0.0',
+        },
+      },
+      scanEntries: [{ file, content }],
+      workspaceConfig: {
+        catalogs: {
+          default: {
+            rolldown: '1.2.14',
+          },
+        },
+        overrides: {
+          rolldown: '1.2.14',
+        },
+      },
+    })
+
+    expect(violations).toEqual(expected)
+  })
+
+  it('keeps published runtime requirements separate from development requirements', () => {
+    const violations = evaluateMigrationGuards({
+      packageEntries: [
+        {
+          file: 'packages/example/package.json',
+          pkg: {
+            type: 'module',
+            engines: {
+              node: '^24.11.0 || >=26.0.0',
+            },
+          },
+        },
+        {
+          file: 'apps/example/package.json',
+          pkg: {
+            private: true,
+            engines: {
+              node: '>=22.12.0',
+            },
+          },
+        },
+      ],
+      rootPackage: {
+        engines: {
+          node: '>=22.12.0',
+        },
+      },
+      scanEntries: [],
+      workspaceConfig: {
+        catalogs: {
+          default: {
+            rolldown: '1.2.14',
+          },
+        },
+        overrides: {
+          rolldown: '1.2.14',
+        },
+      },
+    })
+
+    expect(violations).toEqual([
+      'apps/example/package.json: app engines.node must be "^24.11.0 || >=26.0.0"',
+      'package.json: root engines.node must be "^24.11.0 || >=26.0.0"',
+      'packages/example/package.json: publishable package engines.node must be ">=22.12.0"',
+    ])
+  })
+
+  it.each([
+    {
+      location: 'catalog range',
+      catalog: '^1.2.14',
+      dependency: '1.2.14',
+      override: '1.2.14',
+      expected: 'pnpm-workspace.yaml: catalogs.default.rolldown must stay pinned to "1.2.14"',
+    },
+    {
+      location: 'missing catalog',
+      catalog: undefined,
+      dependency: '1.2.14',
+      override: '1.2.14',
+      expected: 'pnpm-workspace.yaml: catalogs.default.rolldown must stay pinned to "1.2.14"',
+    },
+    {
+      location: 'runtime dependency range',
+      catalog: '1.2.14',
+      dependency: '^1.2.14',
+      override: '1.2.14',
+      expected: 'packages/shared/package.json: dependencies.rolldown must stay pinned to "1.2.14"',
+    },
+    {
+      location: 'missing runtime dependency',
+      catalog: '1.2.14',
+      dependency: undefined,
+      override: '1.2.14',
+      expected: 'packages/shared/package.json: dependencies.rolldown must stay pinned to "1.2.14"',
+    },
+    {
+      location: 'override version',
+      catalog: '1.2.14',
+      dependency: '1.2.14',
+      override: '1.2.0',
+      expected: 'pnpm-workspace.yaml: overrides.rolldown must stay pinned to "1.2.14"',
+    },
+  ])('rejects Rolldown drift in $location', ({ catalog, dependency, override, expected }) => {
+    const violations = evaluateMigrationGuards({
+      packageEntries: [
+        {
+          file: 'packages/shared/package.json',
+          pkg: {
+            type: 'module',
+            engines: {
+              node: '>=22.12.0',
+            },
+            dependencies: {
+              rolldown: dependency,
+            },
+          },
+        },
+      ],
+      rootPackage: {
+        engines: {
+          node: '^24.11.0 || >=26.0.0',
+        },
+      },
+      scanEntries: [],
+      workspaceConfig: {
+        catalogs: {
+          default: {
+            rolldown: catalog,
+          },
+        },
+        overrides: {
+          rolldown: override,
+        },
+      },
+    })
+
+    expect(violations).toEqual([expected])
   })
 
   it('reports legacy build-chain regressions', () => {
@@ -128,6 +310,11 @@ describe('migration guards', () => {
         },
       ],
       workspaceConfig: {
+        catalogs: {
+          default: {
+            rolldown: '1.2.14',
+          },
+        },
         overrides: {
           rolldown: '1.0.0-beta.1',
         },

@@ -5,7 +5,7 @@
   "private": true,
   "homepage": "https://mokup.icebreaker.top",
   "engines": {
-    "node": "^20.19.0 || >=22.12.0"
+    "node": "^24.11.0 || >=26.0.0"
   },
   "scripts": {
     "dev": "vite --host",
@@ -16,20 +16,21 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
-    "worker:deploy": "vite build && wrangler deploy"
+    "worker:deploy": "vite build && wrangler deploy",
+    "test:e2e:d1": "node test/e2e/run-d1-e2e.mjs"
   },
   "dependencies": {
-    "better-auth": "^1.6.23",
-    "drizzle-orm": "^0.45.2",
+    "better-auth": "^1.7.7",
+    "drizzle-orm": "^0.45.4",
     "mokup": "workspace:*",
     "vue": "catalog:"
   },
   "devDependencies": {
-    "@cloudflare/vite-plugin": "^1.45.1",
-    "@cloudflare/workers-types": "^5.20260719.1",
+    "@cloudflare/vite-plugin": "^1.64.0",
+    "@cloudflare/workers-types": "^5.20261014.1",
     "@tailwindcss/vite": "catalog:",
     "@vitejs/plugin-vue": "catalog:",
-    "drizzle-kit": "^0.31.10",
+    "drizzle-kit": "^0.31.11",
     "tailwindcss": "catalog:",
     "typescript": "catalog:",
     "vite": "catalog:",

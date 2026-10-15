@@ -18,7 +18,7 @@
 
 ## Requirements
 
-- Node.js `^20.19.0 || >=22.12.0`
+- Node.js `>=22.12.0`
 
 ## Upgrade Notes
 
@@ -58,6 +58,8 @@ Follow the docs at https://mokup.icebreaker.top/ for Vite and CLI setup.
 Upgrade details: [docs/guide/migration-v1.md](docs/guide/migration-v1.md)
 
 ## Contributing
+
+Repository development requires Node.js `^24.11.0 || >=26.0.0` and the pnpm version pinned in `package.json`.
 
 Issues and pull requests are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md).
 

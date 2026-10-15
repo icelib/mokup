@@ -4,6 +4,18 @@ import { expect, test } from '@playwright/test'
 
 test.describe.configure({ mode: 'serial' })
 
+async function retryOnNavigation<T>(operation: () => Promise<T>) {
+  try {
+    return await operation()
+  }
+  catch (error) {
+    if (error instanceof Error && error.message.includes('Execution context was destroyed, most likely because of a navigation.')) {
+      return null
+    }
+    throw error
+  }
+}
+
 test('docs home and quick start render', async ({ page }) => {
   await page.goto('/', { waitUntil: 'domcontentloaded' })
 
@@ -13,7 +25,7 @@ test('docs home and quick start render', async ({ page }) => {
 
   await expect
     .poll(async () => {
-      return page.evaluate(async () => {
+      return retryOnNavigation(() => page.evaluate(async () => {
         try {
           const response = await fetch('/api/example-basic/ping')
           if (!response.ok) {
@@ -24,7 +36,7 @@ test('docs home and quick start render', async ({ page }) => {
         catch {
           return null
         }
-      })
+      }))
     }, { timeout: 15_000 })
     .toMatchObject({ ok: true, example: 'basic' })
 })
@@ -63,7 +75,7 @@ test('reloads ts mock response after file change', async ({ page }) => {
 
     await expect
       .poll(async () => {
-        return page.evaluate(async () => {
+        return retryOnNavigation(() => page.evaluate(async () => {
           try {
             const response = await fetch(`/api/example-auth/profile?warm=${Date.now()}`, {
               cache: 'no-store',
@@ -76,7 +88,7 @@ test('reloads ts mock response after file change', async ({ page }) => {
           catch {
             return null
           }
-        })
+        }))
       }, { timeout: 15_000 })
       .toMatchObject({ ok: true })
 
@@ -84,7 +96,7 @@ test('reloads ts mock response after file change', async ({ page }) => {
 
     await expect
       .poll(async () => {
-        return page.evaluate(async () => {
+        return retryOnNavigation(() => page.evaluate(async () => {
           try {
             const response = await fetch(`/api/example-auth/profile?tick=${Date.now()}`, {
               cache: 'no-store',
@@ -97,7 +109,7 @@ test('reloads ts mock response after file change', async ({ page }) => {
           catch {
             return null
           }
-        })
+        }))
       }, { timeout: 20_000 })
       .toMatchObject(expected)
   }
@@ -125,7 +137,7 @@ test('reloads json mock response after file change in playground sw mode', async
 
     await expect
       .poll(async () => {
-        return await page.evaluate(async () => {
+        return retryOnNavigation(() => page.evaluate(async () => {
           const controlled = !!navigator.serviceWorker?.controller
             && navigator.serviceWorker.controller.scriptURL.includes('mokup-sw')
           if (!controlled) {
@@ -145,13 +157,13 @@ test('reloads json mock response after file change in playground sw mode', async
           catch {
             return false
           }
-        })
+        }))
       }, { timeout: 20_000 })
       .toBe(true)
 
     await expect
       .poll(async () => {
-        return await page.evaluate(async () => {
+        return retryOnNavigation(() => page.evaluate(async () => {
           try {
             const response = await fetch(`/api/example-auth/session?warm=${Date.now()}`, {
               cache: 'no-store',
@@ -167,7 +179,7 @@ test('reloads json mock response after file change in playground sw mode', async
           catch {
             return null
           }
-        })
+        }))
       }, { timeout: 15_000 })
       .toMatchObject({ ok: true, session: { id: 'sess_demo' } })
 
@@ -175,7 +187,7 @@ test('reloads json mock response after file change in playground sw mode', async
 
     await expect
       .poll(async () => {
-        return await page.evaluate(async () => {
+        return retryOnNavigation(() => page.evaluate(async () => {
           try {
             const response = await fetch(`/api/example-auth/session?tick=${Date.now()}`, {
               cache: 'no-store',
@@ -191,7 +203,7 @@ test('reloads json mock response after file change in playground sw mode', async
           catch {
             return null
           }
-        })
+        }))
       }, { timeout: 20_000 })
       .toMatchObject({
         ok: true,

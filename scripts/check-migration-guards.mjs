@@ -5,8 +5,9 @@ import { pathToFileURL } from 'node:url'
 import { parse as parseYaml } from 'yaml'
 
 const rootDir = process.cwd()
-const expectedNodeRange = '^20.19.0 || >=22.12.0'
-const expectedRolldownVersion = '1.2.0'
+const expectedRuntimeNodeRange = '>=22.12.0'
+const expectedDevelopmentNodeRange = '^24.11.0 || >=26.0.0'
+const expectedRolldownVersion = '1.2.14'
 const allowedScanExtensions = new Set([
   '.js',
   '.jsx',
@@ -89,7 +90,8 @@ const forbiddenContentRules = [
   },
 ]
 
-function getContentViolations(relativeFile, content) {
+function getContentViolations(relativePath, content) {
+  const relativeFile = relativePath.replaceAll('\\', '/')
   const violations = []
   const isAllowedLegacyDoc = allowedLegacyDocFiles.has(relativeFile)
   const isChangelog = path.basename(relativeFile) === 'CHANGELOG.md'
@@ -178,7 +180,7 @@ async function walk(dir, files) {
 }
 
 function isPublishablePackageJson(relativeFile, pkg) {
-  return relativeFile.startsWith(`packages${path.sep}`) && pkg.private !== true
+  return relativeFile.replaceAll('\\', '/').startsWith('packages/') && pkg.private !== true
 }
 
 function isLibraryPackage(pkg) {
@@ -236,6 +238,10 @@ function checkPackageScripts(relativeFile, pkg, violations) {
 }
 
 function checkPackageDeps(relativeFile, pkg, violations) {
+  if (relativeFile.replaceAll('\\', '/') === 'packages/shared/package.json'
+    && pkg.dependencies?.rolldown !== expectedRolldownVersion) {
+    violations.push(`${relativeFile}: dependencies.rolldown must stay pinned to "${expectedRolldownVersion}"`)
+  }
   for (const field of ['dependencies', 'devDependencies', 'peerDependencies', 'optionalDependencies']) {
     const deps = pkg[field]
     if (!deps || typeof deps !== 'object') {
@@ -253,8 +259,8 @@ function checkPackageMeta(relativeFile, pkg, violations) {
   if (pkg.type !== 'module') {
     violations.push(`${relativeFile}: publishable package type must be "module"`)
   }
-  if (pkg.engines?.node !== expectedNodeRange) {
-    violations.push(`${relativeFile}: publishable package engines.node must be "${expectedNodeRange}"`)
+  if (pkg.engines?.node !== expectedRuntimeNodeRange) {
+    violations.push(`${relativeFile}: publishable package engines.node must be "${expectedRuntimeNodeRange}"`)
   }
 }
 
@@ -266,6 +272,10 @@ function evaluateMigrationGuards(input) {
   }
 
   for (const entry of input.packageEntries) {
+    if (entry.file.replaceAll('\\', '/').startsWith('apps/')
+      && entry.pkg.engines?.node !== expectedDevelopmentNodeRange) {
+      violations.push(`${entry.file}: app engines.node must be "${expectedDevelopmentNodeRange}"`)
+    }
     if (!isPublishablePackageJson(entry.file, entry.pkg)) {
       continue
     }
@@ -275,8 +285,11 @@ function evaluateMigrationGuards(input) {
     checkPackageExports(entry.file, entry.pkg, violations)
   }
 
-  if (input.rootPackage.engines?.node !== expectedNodeRange) {
-    violations.push(`package.json: root engines.node must be "${expectedNodeRange}"`)
+  if (input.rootPackage.engines?.node !== expectedDevelopmentNodeRange) {
+    violations.push(`package.json: root engines.node must be "${expectedDevelopmentNodeRange}"`)
+  }
+  if (input.workspaceConfig.catalogs?.default?.rolldown !== expectedRolldownVersion) {
+    violations.push(`pnpm-workspace.yaml: catalogs.default.rolldown must stay pinned to "${expectedRolldownVersion}"`)
   }
   if (input.workspaceConfig.overrides?.rolldown !== expectedRolldownVersion) {
     violations.push(`pnpm-workspace.yaml: overrides.rolldown must stay pinned to "${expectedRolldownVersion}"`)

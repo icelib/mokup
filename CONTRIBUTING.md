@@ -2,7 +2,8 @@
 
 ## Baseline
 
-- Use Node.js `^20.19.0 || >=22.12.0`
+- Use Node.js `^24.11.0 || >=26.0.0` for development and builds
+- Published packages support Node.js `>=22.12.0`
 - Use `pnpm`
 - Keep published packages ESM-only
 - Keep published library packages on `tsdown` + `rolldown`
@@ -36,9 +37,10 @@ The guard blocks:
 - Reintroducing `@mokup/shared/esbuild`
 - Direct `esbuild` imports in repository code or config
 - Reintroducing `tsup`, `unbuild`, or `build.config.*` in active code/config
+- The root workspace or demo apps drifting away from `engines.node: "^24.11.0 || >=26.0.0"`
 - Published library packages drifting away from:
   - `type: "module"`
-  - `engines.node: "^20.19.0 || >=22.12.0"`
+  - `engines.node: ">=22.12.0"`
   - `build: "tsdown"`
   - `dev: "tsdown --watch"`
   - ESM-only `exports`

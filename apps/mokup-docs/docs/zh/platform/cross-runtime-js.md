@@ -28,7 +28,7 @@ Cloudflare Worker：
 - 支持模块或 Service Worker 语法
 - 绑定通过 `env` 注入
 
-Node.js（>=18）：
+Node.js（>=22.12.0）：
 
 - 支持 `fetch`/`Request`/`Response`
 - 有文件系统，但跨平台逻辑中尽量避免
@@ -90,7 +90,7 @@ export default {
 }
 ```
 
-## Node.js 适配层（>=18）
+## Node.js 适配层（>=22.12.0）
 
 ```ts
 import { createServer } from 'node:http'

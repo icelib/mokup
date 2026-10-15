@@ -12,10 +12,10 @@
 所有已发布包现在都要求：
 
 ```text
-^20.19.0 || >=22.12.0
+>=22.12.0
 ```
 
-低于这个范围的 Node.js 版本不再支持。
+Node.js 20 及更早版本不再受支持。仓库开发和构建要求 Node.js `^24.11.0 || >=26.0.0`，成品包在 Node.js 22.12.0 及以上版本运行。
 
 ## 2. 包输出改为 ESM-only
 
@@ -73,5 +73,5 @@ import { build } from '@mokup/shared/rolldown'
 
 - 发布包统一为 ESM-only
 - 发布包统一使用 `tsdown`
-- `tsdown` 实际构建固定到 `rolldown@1.2.0`
+- `tsdown` 实际构建固定到 `rolldown@1.2.14`
 - 单元测试、类型测试、串行 e2e 测试已通过

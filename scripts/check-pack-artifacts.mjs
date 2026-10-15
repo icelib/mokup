@@ -9,6 +9,7 @@ const rootDir = process.cwd()
 const tempPackDir = path.join(rootDir, '.tmp', 'release-pack')
 const allowedRootFiles = new Set([
   'package.json',
+  'LICENSE',
   'README.md',
   'README.zh-CN.md',
 ])

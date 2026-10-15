@@ -53,7 +53,7 @@ jobs:
         id: changesets
         uses: changesets/action@v1
         with:
-          # This expects you to have a script called release which does a build for your packages and calls changeset publish
+          # Versioning is handled by this action; the publish script validates and publishes the versioned packages.
           publish: pnpm publish-packages
         env:
           # this doesn't work but semantic-release works

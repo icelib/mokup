@@ -6,7 +6,7 @@ This pnpm + Turbo monorepo keeps runnable demos and docs under `apps/` (for exam
 
 ## Build, Test, and Development Commands
 
-- `pnpm install` — set up workspaces; ensure Node 20+ as defined in `package.json`.
+- `pnpm install` — set up workspaces; use Node 24.11+ as defined in `package.json`.
 - `pnpm dev` — run `turbo run dev --parallel` for all apps that expose a `dev` script.
 - `pnpm build` — execute `turbo run build` to build every workspace with caching.
 - `pnpm test` / `pnpm test:dev` — run Vitest suites once or in watch mode across packages.
