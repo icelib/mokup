@@ -6,16 +6,17 @@ This pnpm + Turbo monorepo keeps runnable demos and docs under `apps/` (for exam
 
 ## Build, Test, and Development Commands
 
-- `pnpm install` — set up workspaces with pnpm 12.8.1 and Node.js 24 LTS (24.15.0 or newer in the 24.x line).
+- `pnpm install` — set up workspaces with the pnpm version pinned in `package.json` and Node.js `>=24.15.0`; CI uses Node.js 24 LTS.
 - `pnpm dev` — run `turbo run dev --parallel` for all apps that expose a `dev` script.
 - `pnpm build` — execute `turbo run build` to build every workspace with caching.
 - `pnpm test` / `pnpm test:dev` — run Vitest suites once or in watch mode across packages.
+- `pnpm run test:e2e:d1` — verify authentication and existing accounts against an isolated local D1 database.
 - `pnpm run test:vite-compat` — after `pnpm run build:packages`, check the packed loader against supported Vite 5–8 releases in an isolated consumer.
 - `pnpm lint` — invoke `turbo run lint` to apply ESLint/Stylelint policies repo-wide.
 - `pnpm exec repo doctor` / `pnpm exec repo check` — inspect workspace health and run the repoctl checks.
 - `pnpm exec repo clean` — intentionally delete selected workspace package directories after reviewing the selection.
 
-Development, builds, and CI use Node.js 24 LTS. Published packages retain the runtime requirement `^20.19.0 || >=22.12.0`; keep these two requirements separate.
+Development and builds require Node.js `>=24.15.0`; CI uses Node.js 24 LTS. Published packages require Node.js `>=22.12.0`; keep these two requirements separate.
 
 ## Coding Style & Naming Conventions
 

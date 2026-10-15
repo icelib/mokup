@@ -65,7 +65,6 @@ const middleware: MiddlewareHandler = async (
   return await next()
 }
 
-export default defineConfig(({ app }) => {
-  app.use(middleware)
-  return {}
+export default defineConfig({
+  middleware,
 })

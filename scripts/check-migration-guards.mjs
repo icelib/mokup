@@ -89,7 +89,8 @@ const forbiddenContentRules = [
   },
 ]
 
-function getContentViolations(relativeFile, content) {
+function getContentViolations(relativePath, content) {
+  const relativeFile = relativePath.replaceAll('\\', '/')
   const violations = []
   const isAllowedLegacyDoc = allowedLegacyDocFiles.has(relativeFile)
   const isChangelog = path.basename(relativeFile) === 'CHANGELOG.md'
@@ -295,7 +296,11 @@ function checkBuildCatalog(input, violations) {
   }
 }
 
-function evaluateMigrationGuards(input) {
+function evaluateMigrationGuards(rawInput) {
+  const input = {
+    ...rawInput,
+    packageEntries: rawInput.packageEntries.map(entry => ({ ...entry, file: entry.file.replaceAll('\\', '/') })),
+  }
   const violations = []
   const developmentNodeRange = input.rootPackage.engines?.node
   const runtimeNodeRange = input.packageEntries.find(entry => entry.file === 'packages/runtime/package.json')?.pkg.engines?.node

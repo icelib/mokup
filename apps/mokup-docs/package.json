@@ -25,8 +25,8 @@
     "mokup": "workspace:*",
     "tailwindcss": "catalog:",
     "vite": "catalog:",
-    "vitepress": "2.0.0-alpha.20",
-    "vitepress-plugin-group-icons": "^1.7.6",
+    "vitepress": "2.0.0-alpha.18",
+    "vitepress-plugin-group-icons": "^1.7.7",
     "vitepress-plugin-llms": "^1.14.0",
     "vue-tsc": "catalog:",
     "wrangler": "catalog:"

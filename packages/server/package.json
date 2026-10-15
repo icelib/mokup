@@ -111,7 +111,7 @@
     "dist"
   ],
   "engines": {
-    "node": "^20.19.0 || >=22.12.0"
+    "node": ">=22.12.0"
   },
   "scripts": {
     "build": "tsdown",
@@ -127,7 +127,7 @@
     "@mokup/playground": "workspace:*",
     "@mokup/runtime": "workspace:*",
     "@mokup/shared": "workspace:*",
-    "fastify-plugin": "^6.0.0",
+    "fastify-plugin": "^6.0.1",
     "ws": "^8.22.0"
   },
   "tsd": {
@@ -139,7 +139,7 @@
   "devDependencies": {
     "@types/koa": "^3.0.3",
     "@types/ws": "^8.18.2",
-    "fastify": "^5.12.5",
+    "fastify": "^5.12.7",
     "koa": "^3.2.1"
   }
 }

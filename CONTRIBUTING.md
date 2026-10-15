@@ -2,13 +2,13 @@
 
 ## Baseline
 
-- Use Node.js 24 LTS (24.15.0 or newer in the 24.x line) for development, builds, and CI
-- Use `pnpm@12.8.1`, as pinned in the root `package.json`
-- Preserve the published packages' runtime requirement: `^20.19.0 || >=22.12.0`
+- Use Node.js `>=24.15.0` for development and builds; CI uses Node.js 24 LTS
+- Use the pnpm version pinned in the root `package.json`
+- Preserve the published packages' runtime requirement: `>=22.12.0`
 - Keep published packages ESM-only
 - Keep published library packages on `tsdown` + `rolldown`
 
-The development Node.js minimum follows the ESLint toolchain supplied by repoctl. Shared repository tooling is configured through `repoctl.config.ts` and the `repoctl/tooling` wrappers. Dependency catalogs, overrides, and installation settings live in `pnpm-workspace.yaml`; `.npmrc` contains registry and authentication settings.
+The development Node.js minimum follows the shared tooling and jsdom requirements. Shared repository tooling is configured through `repoctl.config.ts` and the `repoctl/tooling` wrappers. Dependency catalogs, overrides, and installation settings live in `pnpm-workspace.yaml`; `.npmrc` contains registry and authentication settings.
 
 ## Before Opening A PR
 
@@ -19,6 +19,7 @@ The development Node.js minimum follows the ESLint toolchain supplied by repoctl
 - Run `pnpm run lint:lines` for strict line-budget checks (or `pnpm run lint:lines:guard` for CI-compatible guard mode)
 - Run `pnpm test`
 - Run `pnpm test:e2e:serial` for changes that may affect demos, dev server flow, HMR, or root Playwright E2E coverage
+- Run `pnpm test:e2e:d1` when changing D1, Drizzle, or Better Auth integration
 - Add a release intent with `pnpm change` when publishable packages change, and review `pnpm exec repo release plan`
 
 ## Repository Maintenance
@@ -45,7 +46,7 @@ Dependency maintenance should leave package versions and release intents pending
 
 The `repoctl-release-state` branch stores durable publishing checkpoints. Its initial commit contains only checkpoint documentation, with no source-tree parent or workflow files. Each checkpoint retains the original package source commit separately. A version commit can predate workflow fixes, so initializing this branch from that commit can require workflow permissions unavailable to `GITHUB_TOKEN`.
 
-The version-scoped pnpm patch in `patches/@icebreakers__monorepo@5.7.1.patch` fixes initialization and preserves the original branch-creation error when no concurrent publisher created the branch. `pnpm run test:release-tools` exercises the installed repoctl client with a simulated GitHub API, including concurrent creation and checkpoint conflicts. Keep these tests when upgrading repoctl; remove the patch once the upstream implementation passes them.
+The version-scoped pnpm patch under `patches/` fixes initialization and preserves the original branch-creation error when no concurrent publisher created the branch. `pnpm run test:release-tools` exercises the installed repoctl client with a simulated GitHub API, including concurrent creation and checkpoint conflicts. Keep these tests when upgrading repoctl; remove the patch once the upstream implementation passes them.
 
 New releases explicitly use the workflow's checked-out commit as `REPO_RELEASE_SOURCE_SHA`, keeping checkpoint targets, npm `gitHead`, tags, and provenance aligned even when workflow fixes follow the version commit.
 
@@ -72,9 +73,10 @@ The guard blocks:
 - Reintroducing `@mokup/shared/esbuild`
 - Direct `esbuild` imports in repository code or config
 - Reintroducing `tsup`, `unbuild`, or `build.config.*` in active code/config
+- The root workspace or demo apps drifting away from `engines.node: ">=24.15.0"`
 - Published library packages drifting away from:
   - `type: "module"`
-  - `engines.node: "^20.19.0 || >=22.12.0"`
+  - `engines.node: ">=22.12.0"`
   - `build: "tsdown"`
   - `dev: "tsdown --watch"`
   - ESM-only `exports`

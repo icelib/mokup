@@ -1,12 +1,11 @@
-diff --git a/dist/commands-CusCWJxk.mjs b/dist/commands-CusCWJxk.mjs
-index bce5ef29a9697e7b8c5c56fad88c1546fe2a8236..1003208c8f4864ee1fc0160d1563085a41ad5974 100644
---- a/dist/commands-CusCWJxk.mjs
-+++ b/dist/commands-CusCWJxk.mjs
-@@ -4997,13 +4997,33 @@ async function writeReleaseState(request, key, state, revision, options = {}) {
+diff --git a/dist/commands-CB-HD_yZ.mjs b/dist/commands-CB-HD_yZ.mjs
+--- a/dist/commands-CB-HD_yZ.mjs
++++ b/dist/commands-CB-HD_yZ.mjs
+@@ -5030,13 +5030,33 @@
  		await request("GET", `/git/ref/heads/${branch}`);
  	} catch (error) {
  		if (!missing(error)) throw error;
-+		// 检查点分支仅保存发布状态，避免复制历史源码中的 workflow 而需要额外权限。
++		// The checkpoint branch stores release state without copying source workflows.
 +		const { data: tree } = await request("POST", "/git/trees", {
 +			tree: [{
 +				path: ".repoctl-release/README.md",

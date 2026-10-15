@@ -30,7 +30,7 @@ Cloudflare Worker:
 - module or service-worker syntax
 - bindings come from `env`
 
-Node.js (>=18):
+Node.js (>=22.12.0):
 
 - `fetch`/`Request`/`Response` available
 - filesystem exists, but avoid for portability
@@ -92,7 +92,7 @@ export default {
 }
 ```
 
-## Node.js adapter (>=18)
+## Node.js adapter (>=22.12.0)
 
 ```ts
 import { createServer } from 'node:http'

@@ -9,7 +9,7 @@ import { inspect, promisify } from 'node:util'
 
 const execFileAsync = promisify(execFile)
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
-const versions = ['5.0.0', '5.4.21', '6.0.0', '6.4.1', '7.0.0', '7.3.6', '8.0.0', '8.3.2']
+const versions = ['5.0.0', '5.4.21', '6.0.0', '6.4.1', '7.0.0', '7.3.6', '8.0.0', '8.3.4']
 const packageNames = ['shared', 'runtime', 'core']
 
 async function run(command, args, cwd, timeout) {
