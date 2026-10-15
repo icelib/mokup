@@ -1,12 +1,15 @@
 import type { Context } from '@mokup/shared/hono'
 import type { RuntimeRule } from '../module'
 import type { ManifestRoute, MiddlewareHandler, ModuleMap, RuntimeOptions } from '../types'
+import { prioritizeHeadRoutes } from '@mokup/shared/head-routes'
 import { Hono, PatternRouter } from '@mokup/shared/hono'
+import { registerTokenRoute } from '@mokup/shared/hono-routes'
+import { applyContextResponseOverrides } from '@mokup/shared/response-overrides'
 import { executeRule, loadModuleMiddleware, loadModuleRule } from '../module'
 import { delay } from '../normalize'
 import { decodeBase64 } from '../response'
-import { applyRouteOverrides, resolveResponse } from './response'
-import { compileRoutes, toHonoPath } from './routes'
+import { resolveResponse } from './response'
+import { compileRoutes } from './routes'
 
 function normalizeHandlerValue(c: Context, value: unknown): Response {
   if (value instanceof Response) {
@@ -77,9 +80,7 @@ function createFinalizeMiddleware(route: ManifestRoute): MiddlewareHandler {
     if (route.delay && route.delay > 0) {
       await delay(route.delay)
     }
-    const overridden = applyRouteOverrides(resolved, route)
-    c.res = overridden
-    return overridden
+    return applyContextResponseOverrides(c, resolved, route)
   }
 }
 
@@ -96,7 +97,7 @@ async function buildApp(params: {
   const app = new Hono({ router: new PatternRouter(), strict: false })
   const compiled = compileRoutes(manifest)
 
-  for (const entry of compiled) {
+  for (const entry of prioritizeHeadRoutes(compiled)) {
     const middlewares: MiddlewareHandler[] = []
     for (const middleware of entry.route.middleware ?? []) {
       const handler = await loadModuleMiddleware(
@@ -117,12 +118,11 @@ async function buildApp(params: {
       ...(typeof params.moduleMap !== 'undefined' ? { moduleMap: params.moduleMap } : {}),
     })
 
-    app.on(
+    registerTokenRoute(
+      app,
       entry.method,
-      toHonoPath(entry.tokens),
-      createFinalizeMiddleware(entry.route),
-      ...middlewares,
-      handler,
+      entry.tokens,
+      [createFinalizeMiddleware(entry.route), ...middlewares, handler],
     )
   }
 

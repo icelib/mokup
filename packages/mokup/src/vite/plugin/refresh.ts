@@ -13,7 +13,19 @@ interface InvalidatableModuleNode {
   importers?: Set<InvalidatableModuleNode>
 }
 
-function invalidateModuleChain(server: ViteDevServer, node: InvalidatableModuleNode) {
+interface ModuleGraphLike {
+  getModuleById: (id: string) => InvalidatableModuleNode | null | undefined
+  invalidateModule: (node: InvalidatableModuleNode) => void
+}
+
+interface ViteServerWithEnvironments {
+  // Vite 8 exposes one module graph per environment. Keep this optional so
+  // the plugin remains compatible with Vite 5-7, which only expose the mixed
+  // server graph.
+  environments?: Record<string, { moduleGraph?: ModuleGraphLike }>
+}
+
+function invalidateModuleChain(moduleGraph: ModuleGraphLike, node: InvalidatableModuleNode) {
   const visited = new Set<InvalidatableModuleNode>()
   const stack = [node]
 
@@ -23,10 +35,34 @@ function invalidateModuleChain(server: ViteDevServer, node: InvalidatableModuleN
       continue
     }
     visited.add(current)
-    server.moduleGraph.invalidateModule(current as Parameters<typeof server.moduleGraph.invalidateModule>[0])
+    moduleGraph.invalidateModule(current)
     if (current.importers) {
       for (const importer of current.importers) {
         stack.push(importer)
+      }
+    }
+  }
+}
+
+function getModuleGraphs(server: ViteDevServer): ModuleGraphLike[] {
+  const graphs: ModuleGraphLike[] = [server.moduleGraph as unknown as ModuleGraphLike]
+  const environments = (server as unknown as ViteServerWithEnvironments).environments
+  if (environments) {
+    for (const environment of Object.values(environments)) {
+      if (environment.moduleGraph) {
+        graphs.push(environment.moduleGraph)
+      }
+    }
+  }
+  return Array.from(new Set(graphs))
+}
+
+function invalidateVirtualModuleChains(server: ViteDevServer, moduleIds: string[]) {
+  for (const moduleGraph of getModuleGraphs(server)) {
+    for (const id of moduleIds) {
+      const moduleNode = moduleGraph.getModuleById(id)
+      if (moduleNode) {
+        invalidateModuleChain(moduleGraph, moduleNode)
       }
     }
   }
@@ -40,6 +76,7 @@ function createRouteRefresher(params: {
   enableViteMiddleware: boolean
   virtualModuleIds?: string[]
   reloadOnChange?: boolean
+  reloadOnFirstSwRoute?: boolean
   errorOn?: DiagnosticErrorMode
 }) {
   const {
@@ -50,6 +87,7 @@ function createRouteRefresher(params: {
     enableViteMiddleware,
     virtualModuleIds,
     reloadOnChange = false,
+    reloadOnFirstSwRoute = false,
     errorOn,
   } = params
 
@@ -57,6 +95,7 @@ function createRouteRefresher(params: {
     server?: ViteDevServer | PreviewServer,
     options?: { force?: boolean, silent?: boolean },
   ) => {
+    const hadSwRoutes = state.swRoutes.length > 0
     const unsupportedRuleFiles = new Set<string>()
     const missingHandlerFiles = new Set<string>()
     const duplicateRoutes = new Set<string>()
@@ -114,15 +153,13 @@ function createRouteRefresher(params: {
         collectedServer.push(...scanned)
       }
     }
-    state.routes = sortRoutes(collected)
-    state.serverRoutes = sortRoutes(collectedServer)
-    state.swRoutes = sortRoutes(collectedSw)
-    state.disabledRoutes = collectedDisabled
-    state.ignoredRoutes = collectedIgnored
+    const routes = sortRoutes(collected)
+    const serverRoutes = sortRoutes(collectedServer)
+    const swRoutes = sortRoutes(collectedSw)
     const configMap = new Map(collectedConfigs.map(entry => [entry.file, entry]))
     const resolvedConfigs = Array.from(configMap.values())
-    state.configFiles = resolvedConfigs.filter(entry => entry.enabled)
-    state.disabledConfigFiles = resolvedConfigs.filter(entry => !entry.enabled)
+    const configFiles = resolvedConfigs.filter(entry => entry.enabled)
+    const disabledConfigFiles = resolvedConfigs.filter(entry => !entry.enabled)
     const diagnosticSections = createRouteDiagnosticSections({
       invalidRoutes: collectedIgnored
         .filter(info => info.reason === 'invalid-route')
@@ -138,6 +175,7 @@ function createRouteRefresher(params: {
     const diagnosticSignature = diagnosticLines.join('\n')
     const previousDiagnosticsSignature = state.lastDiagnosticsSignature ?? ''
     const diagnosticsChanged = diagnosticSignature !== previousDiagnosticsSignature
+    // Diagnostics describe the latest scan, even when its route snapshot is rejected.
     state.lastDiagnosticsSignature = diagnosticLines.length > 0 ? diagnosticSignature : null
     if (diagnosticError) {
       throw diagnosticError
@@ -152,23 +190,36 @@ function createRouteRefresher(params: {
         logger.info('Mokup diagnostics cleared.')
       }
     }
-    state.app = enableViteMiddleware && state.serverRoutes.length > 0
-      ? createHonoApp(state.serverRoutes)
+    const app = enableViteMiddleware && serverRoutes.length > 0
+      ? createHonoApp(serverRoutes)
       : null
     const signature = buildRouteSignature(
-      state.routes,
-      state.disabledRoutes,
-      state.ignoredRoutes,
-      state.configFiles,
-      state.disabledConfigFiles,
+      routes,
+      collectedDisabled,
+      collectedIgnored,
+      configFiles,
+      disabledConfigFiles,
     )
-    const changed = signature !== state.lastSignature || options?.force
-    if (changed && state.swRoutes.length > 0) {
-      state.swModuleVersion = (state.swModuleVersion ?? 0) + 1
-    }
+    const previousSignature = state.lastSignature
+    const changed = signature !== previousSignature || options?.force
+    // Prepare every field before publishing, and notify only after the complete
+    // snapshot is visible to middleware, virtual modules, and Playground readers.
+    const snapshot = {
+      routes,
+      serverRoutes,
+      swRoutes,
+      disabledRoutes: collectedDisabled,
+      ignoredRoutes: collectedIgnored,
+      configFiles,
+      disabledConfigFiles,
+      app,
+      lastSignature: signature,
+      ...(changed && swRoutes.length > 0 ? { swModuleVersion: (state.swModuleVersion ?? 0) + 1 } : {}),
+    } satisfies Omit<PluginState, 'lastDiagnosticsSignature'>
+    Object.assign(state, snapshot)
     if (isViteDevServer(server) && server.ws) {
       const shouldNotify = !options?.silent
-        && state.lastSignature
+        && previousSignature !== null
         && changed
       if (shouldNotify) {
         server.ws.send({
@@ -177,19 +228,15 @@ function createRouteRefresher(params: {
           data: { ts: Date.now() },
         })
         if (virtualModuleIds && virtualModuleIds.length > 0) {
-          for (const id of virtualModuleIds) {
-            const moduleNode = server.moduleGraph.getModuleById(id)
-            if (moduleNode) {
-              invalidateModuleChain(server, moduleNode as InvalidatableModuleNode)
-            }
-          }
+          invalidateVirtualModuleChains(server, virtualModuleIds)
         }
-        if (reloadOnChange) {
+        // An initially empty page has no SW registration script yet. Let Vite's
+        // existing client load the HTML that registers the first worker.
+        if (reloadOnChange || (reloadOnFirstSwRoute && !hadSwRoutes && state.swRoutes.length > 0)) {
           server.ws.send({ type: 'full-reload', path: '*' })
         }
       }
     }
-    state.lastSignature = signature
   }
 }
 

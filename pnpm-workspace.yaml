@@ -2,48 +2,86 @@ packages:
   - apps/*
   - packages/*
   - '!**/test/**'
-allowBuilds:
-  '@prisma/engines': false
-  '@tailwindcss/oxide': true
-  esbuild: false
-  msgpackr-extract: false
-  prisma: false
-  sharp: true
-  workerd: true
-catalogs:
-  default:
-    '@faker-js/faker': ^10.6.0
-    '@tailwindcss/vite': ^4.3.3
-    '@types/node': ^26.6.5
-    '@vitejs/plugin-vue': ^6.0.10
-    pathe: ^2.0.3
-    rolldown: 1.2.14
-    tailwindcss: ^4.3.3
-    tsdown: 0.23.1
-    tsx: ^4.23.15
-    typescript: ^6.0.3
-    vite: ^8.3.4
-    vue: ^3.5.44
-    wrangler: ^4.151.0
-overrides:
-  '@babel/plugin-transform-modules-systemjs@>=7.12.0 <7.29.4': ^7.29.4
-  '@hono/node-server@>=1.0.0 <1.19.15': ^1.19.15
-  adm-zip@<0.6.0: ^0.6.0
-  cross-spawn@>=7.0.0 <7.0.5: ^7.0.5
-  effect@<3.20.0: ^3.20.0
-  esbuild: 0.28.2
-  form-data@>=4.0.0 <4.0.6: ^4.0.6
-  hono@>=4.0.0 <4.13.13: ^4.13.13
-  lodash@>=4.0.0 <4.17.24: ^4.17.24
-  micromark-extension-math>katex: ^0.19.0
+catalog:
+  '@cloudflare/vite-plugin': ^1.64.0
+  '@faker-js/faker': ^10.6.0
+  '@hono/node-server': ^2.1.5
+  '@tailwindcss/vite': ^4.3.3
+  '@types/node': ^24.19.2
+  '@vitejs/plugin-vue': ^6.0.10
+  axios: ^1.20.0
+  hono: ^4.13.13
+  pathe: ^2.0.3
   rolldown: 1.2.14
-  rollup@>=4.0.0 <4.59.0: ^4.59.0
-  serialize-javascript@>=5.0.0 <7.0.5: ^7.0.5
-  tinypool@>=2.0.0 <2.1.2: ^2.2.0
-  uuid@<11.1.1: ^11.1.1
-gitChecks: false
-pmOnFail: warn
+  tailwindcss: ^4.3.3
+  tsdown: 0.23.1
+  tsx: ^4.23.15
+  typescript: ^6.0.3
+  vite: ^8.3.4
+  vue: ^3.5.44
+  vue-tsc: ^3.3.13
+  wrangler: ^4.151.0
 autoInstallPeers: true
 strictPeerDependencies: false
 resolutionMode: highest
+packageExtensions:
+  '@pnpm/fs.find-packages@1000.0.24':
+    dependencies:
+      '@pnpm/logger': 1001.0.1
+pmOnFail: error
 minimumReleaseAge: 1440
+strictDepBuilds: true
+allowBuilds:
+  '@prisma/engines': false
+  '@tailwindcss/oxide': true
+  esbuild: true
+  msgpackr-extract: true
+  prisma: false
+  sharp: true
+  workerd: true
+versioning:
+  changelog:
+    storage: repository
+overrides:
+  stylelint@17.16.0>@csstools/css-parser-algorithms: 4.0.2
+  stylelint@17.16.0>@csstools/css-tokenizer: 4.0.2
+  '@asamuzakjp/css-color@5.1.11>@csstools/css-parser-algorithms': 4.0.2
+  '@asamuzakjp/css-color@5.1.11>@csstools/css-tokenizer': 4.0.2
+  adm-zip@<0.6.0: ^0.6.0
+  cross-spawn@>=7.0.0 <7.0.5: ^7.0.5
+  effect@<3.20.0: ^3.20.0
+  form-data@>=4.0.0 <4.0.6: ^4.0.6
+  rollup@>=4.0.0 <4.59.0: ^4.59.0
+  uuid@<11.1.1: ^11.1.1
+  tar@>=7.0.0 <7.5.22: ^7.5.22
+  path-to-regexp@>=8.0.0 <8.4.2: ^8.4.2
+  linkify-it@>=5.0.0 <5.0.2: ^5.0.2
+  postcss@>=8.0.0 <8.5.28: ^8.5.28
+  brace-expansion@>=2.0.0 <2.1.7: ^2.1.7
+  brace-expansion@>=5.0.0 <5.0.12: ^5.0.12
+  js-yaml@>=3.0.0 <3.15.2: ^3.15.2
+  js-yaml@>=4.0.0 <4.3.2: ^4.3.2
+  fast-uri@>=3.0.0 <3.1.8: ^3.1.8
+  brace-expansion@>=1.0.0 <1.1.21: ^1.1.21
+  ip-address@>=10.0.0 <10.7.3: ^10.7.3
+  browserslist@>=4.0.0 <4.29.3: ^4.29.3
+  baseline-browser-mapping@>=2.0.0 <2.11.27: ^2.11.27
+  qs@>=6.0.0 <6.16.0: ^6.16.0
+  markdown-it@>=14.0.0 <14.3.2: ^14.3.2
+  '@humanfs/node@>=0.16.0 <0.16.8': ^0.16.8
+  '@babel/core@>=7.0.0 <7.29.7': ^7.29.7
+  body-parser@>=2.0.0 <2.3.0: ^2.3.0
+  postcss-selector-parser@>=7.0.0 <7.1.6: ^7.1.6
+  drizzle-kit@0.31.11>@esbuild-kit/esm-loader: '-'
+  drizzle-kit@0.31.11>tsx: ^4.23.15
+  '@babel/plugin-transform-modules-systemjs@>=7.12.0 <7.29.4': ^7.29.4
+  '@hono/node-server@>=1.0.0 <1.19.15': ^1.19.15
+  esbuild: 0.28.2
+  hono@>=4.0.0 <4.13.13: ^4.13.13
+  lodash@>=4.0.0 <4.17.24: ^4.17.24
+  micromark-extension-math>katex: ^0.19.0
+  serialize-javascript@>=5.0.0 <7.0.5: ^7.0.5
+  tinypool@>=2.0.0 <2.1.2: ^2.2.0
+gitChecks: false
+patchedDependencies:
+  '@icebreakers/monorepo@5.10.3': patches/@icebreakers__monorepo@5.10.3.patch

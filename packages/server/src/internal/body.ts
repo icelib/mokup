@@ -1,7 +1,13 @@
 import type { ReadableStreamLike } from './types'
+import { readStreamBody } from '@mokup/shared/stream-body'
 
 const textDecoder = new TextDecoder()
-const textEncoder = new TextEncoder()
+
+interface ResolvedRequestBody {
+  body: unknown
+  rawBody?: string
+  rawBodyBytes?: Uint8Array
+}
 
 /**
  * Parse raw body text based on content type.
@@ -34,8 +40,11 @@ export function parseBody(rawText: string, contentType: string) {
   return rawText
 }
 
-function decodeText(data: Uint8Array): string {
-  return textDecoder.decode(data)
+function resolveByteBody(data: Uint8Array, contentType: string): ResolvedRequestBody {
+  // Snapshot only this view before asynchronous runtime work can observe mutations.
+  const rawBodyBytes = new Uint8Array(data)
+  const rawBody = textDecoder.decode(rawBodyBytes)
+  return { body: parseBody(rawBody, contentType), rawBody, rawBodyBytes }
 }
 
 /**
@@ -78,63 +87,11 @@ export function toArrayBuffer(body: Uint8Array): ArrayBuffer {
   return copy.buffer
 }
 
-function concatChunks(chunks: Uint8Array[]): Uint8Array {
-  if (chunks.length === 1) {
-    return chunks[0] ?? new Uint8Array()
-  }
-  let totalLength = 0
-  for (const chunk of chunks) {
-    totalLength += chunk.length
-  }
-  const merged = new Uint8Array(totalLength)
-  let offset = 0
-  for (const chunk of chunks) {
-    merged.set(chunk, offset)
-    offset += chunk.length
-  }
-  return merged
-}
-
-async function readStreamBody(
-  stream: ReadableStreamLike,
-): Promise<Uint8Array | null> {
-  return await new Promise((resolve, reject) => {
-    const chunks: Uint8Array[] = []
-    let hasData = false
-    stream.on('data', (chunk: unknown) => {
-      hasData = true
-      if (typeof chunk === 'string') {
-        chunks.push(textEncoder.encode(chunk))
-        return
-      }
-      if (chunk instanceof Uint8Array) {
-        chunks.push(chunk)
-        return
-      }
-      if (chunk instanceof ArrayBuffer) {
-        chunks.push(new Uint8Array(chunk))
-        return
-      }
-      chunks.push(textEncoder.encode(String(chunk)))
-    })
-    stream.on('end', () => {
-      if (!hasData) {
-        resolve(null)
-        return
-      }
-      resolve(concatChunks(chunks))
-    })
-    stream.on('error', (error) => {
-      reject(error)
-    })
-  })
-}
-
 async function resolveBody(
   body: unknown,
   contentType: string,
   stream?: ReadableStreamLike,
-): Promise<{ body: unknown, rawBody?: string }> {
+): Promise<ResolvedRequestBody> {
   if (typeof body !== 'undefined') {
     if (typeof body === 'string') {
       return {
@@ -143,18 +100,10 @@ async function resolveBody(
       }
     }
     if (body instanceof Uint8Array) {
-      const rawText = decodeText(body)
-      return {
-        body: parseBody(rawText, contentType),
-        rawBody: rawText,
-      }
+      return resolveByteBody(body, contentType)
     }
     if (body instanceof ArrayBuffer) {
-      const rawText = decodeText(new Uint8Array(body))
-      return {
-        body: parseBody(rawText, contentType),
-        rawBody: rawText,
-      }
+      return resolveByteBody(new Uint8Array(body), contentType)
     }
     return {
       body,
@@ -166,14 +115,13 @@ async function resolveBody(
   }
 
   const rawBytes = await readStreamBody(stream)
-  if (!rawBytes || rawBytes.length === 0) {
+  if (!rawBytes) {
     return { body: undefined }
   }
-  const rawText = decodeText(rawBytes)
-  return {
-    body: parseBody(rawText, contentType),
-    rawBody: rawText,
+  if (rawBytes.length === 0) {
+    return { body: undefined, rawBodyBytes: new Uint8Array(0) }
   }
+  return resolveByteBody(rawBytes, contentType)
 }
 
-export { resolveBody }
+export { resolveBody, type ResolvedRequestBody }

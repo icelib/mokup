@@ -262,7 +262,7 @@ export function buildSwScript(params: {
 
   for (const entry of modules) {
     const name = `module${moduleIndex++}`
-    imports.push(`import * as ${name} from '${entry.id}'`)
+    imports.push(`import * as ${name} from ${JSON.stringify(entry.id)}`)
     moduleEntries.push({ id: entry.id, name, kind: entry.kind })
   }
 
@@ -321,18 +321,20 @@ export function buildSwScript(params: {
     '  })',
     '}',
     '',
-    'const registerHandler = async () => {',
-    `  const app = await createRuntimeApp(${runtimeOptions})`,
-    '  const handler = handle(app)',
-    '  self.addEventListener(\'fetch\', (event) => {',
-    '    if (!shouldHandle(event.request)) {',
-    '      return',
-    '    }',
-    '    handler(event)',
-    '  })',
+    `const appPromise = createRuntimeApp(${runtimeOptions})`,
+    'const app = {',
+    '  fetch: (request, env, executionCtx) => appPromise.then((resolved) => resolved.fetch(request, env, executionCtx)),',
     '}',
+    'const handler = handle(app)',
     '',
-    'registerHandler().catch((error) => {',
+    'self.addEventListener(\'fetch\', (event) => {',
+    '  if (!shouldHandle(event.request)) {',
+    '    return',
+    '  }',
+    '  handler(event)',
+    '})',
+    '',
+    'appPromise.catch((error) => {',
     '  logger.error(\'Failed to build service worker app:\', error)',
     '})',
     '',

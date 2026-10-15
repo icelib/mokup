@@ -3,6 +3,7 @@ import { existsSync, promises as fs } from 'node:fs'
 import { connect, createServer } from 'node:net'
 import { dirname, join, relative, resolve } from 'node:path'
 import process from 'node:process'
+import { stopProcess } from './utils/process.mjs'
 
 const ACCESS_HOST = process.env.E2E_ACCESS_HOST || '127.0.0.1'
 const BIND_HOST = process.env.E2E_BIND_HOST || '127.0.0.1'
@@ -90,17 +91,6 @@ function runChildProcess(command, args, options = {}) {
       }
       reject(new Error(`Command failed with code ${String(code)} and signal ${String(signal)}`))
     })
-  })
-}
-
-function waitForProcessExit(child) {
-  return new Promise((resolve) => {
-    if (!child || child.exitCode !== null) {
-      resolve()
-      return
-    }
-    child.once('exit', () => resolve())
-    child.once('error', () => resolve())
   })
 }
 
@@ -516,27 +506,6 @@ async function waitForViteStable({
   )
 }
 
-async function stopProcess(child) {
-  if (!child || child.killed) {
-    return
-  }
-  child.kill('SIGTERM')
-  const timeout = setTimeout(() => {
-    if (!child.killed && child.exitCode === null) {
-      child.kill('SIGKILL')
-    }
-  }, 5_000)
-  try {
-    await waitForProcessExit(child)
-  }
-  catch {
-    // ignore termination errors
-  }
-  finally {
-    clearTimeout(timeout)
-  }
-}
-
 async function cleanupAppArtifacts(appRoot, cleanupPaths) {
   if (!Array.isArray(cleanupPaths) || cleanupPaths.length === 0) {
     return
@@ -581,6 +550,7 @@ async function main() {
     PORT: String(port),
   }
   let devProcess
+  const runErrors = []
 
   const buildDevArgs = (targetPort) => {
     const devArgs = [
@@ -625,8 +595,11 @@ async function main() {
 
   let preCommandsDone = false
 
-  const onExit = async () => {
-    await stopProcess(devProcess)
+  const onExit = () => {
+    void stopProcess(devProcess).catch((error) => {
+      process.stderr.write(`Failed to stop app dev server: ${String(error)}\n`)
+      process.exitCode = 1
+    })
   }
   process.once('SIGINT', onExit)
   process.once('SIGTERM', onExit)
@@ -702,7 +675,12 @@ async function main() {
         break
       }
       catch (error) {
-        await stopProcess(devProcess)
+        try {
+          await stopProcess(devProcess)
+        }
+        catch (cleanupError) {
+          throw new AggregateError([error, cleanupError], `App dev server startup and cleanup failed (${appName})`)
+        }
         if (attempt >= maxViteStartAttempts) {
           throw new Error(
             `Failed to start app dev server (${describeAppRun(appConfig.server.command, buildDevArgs(port))}): ${error instanceof Error ? error.message : String(error)}`,
@@ -738,11 +716,27 @@ async function main() {
       )
     }
   }
+  catch (error) {
+    runErrors.push(error)
+  }
   finally {
     process.off('SIGINT', onExit)
     process.off('SIGTERM', onExit)
-    await stopProcess(devProcess)
-    await cleanupAppArtifacts(appRoot, appConfig.cleanupPaths)
+    try {
+      await stopProcess(devProcess)
+    }
+    catch (cleanupError) {
+      runErrors.push(cleanupError)
+    }
+    finally {
+      await cleanupAppArtifacts(appRoot, appConfig.cleanupPaths)
+    }
+  }
+  if (runErrors.length > 1) {
+    throw new AggregateError(runErrors, `App E2E run and server cleanup failed (${appName})`)
+  }
+  if (runErrors.length === 1) {
+    throw runErrors[0]
   }
 }
 

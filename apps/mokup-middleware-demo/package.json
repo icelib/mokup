@@ -1,10 +1,10 @@
 {
   "name": "mokup-middleware-demo",
   "type": "module",
-  "version": "0.0.20",
+  "version": "0.0.21",
   "private": true,
   "engines": {
-    "node": "^24.11.0 || >=26.0.0"
+    "node": ">=24.15.0"
   },
   "scripts": {
     "build:mock": "node ../../packages/mokup/dist/cli-bin.mjs build --dir mock --out .mokup",

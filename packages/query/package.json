@@ -1,7 +1,7 @@
 {
   "name": "@mokup/query",
   "type": "module",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "TanStack Query integrations for mokup client switching.",
   "license": "MIT",
   "homepage": "https://mokup.icebreaker.top",
@@ -39,5 +39,11 @@
   },
   "dependencies": {
     "@mokup/client": "workspace:*"
+  },
+  "tsd": {
+    "compilerOptions": {
+      "module": "NodeNext",
+      "rootDir": "."
+    }
   }
 }

@@ -19,7 +19,10 @@ describe('module loader branches', () => {
     const register = vi.fn()
     const dir = await fs.mkdtemp(join(tmpdir(), 'mokup-module-branches-'))
     const valueFile = join(dir, 'value.mjs')
+    const sourceFile = join(dir, 'mock.ts')
     await fs.writeFile(valueFile, 'export const value = "ts"', 'utf8')
+    await fs.writeFile(sourceFile, 'export const value = "ts"', 'utf8')
+    await fs.writeFile(join(dir, 'package.json'), '{"type":"module"}')
 
     vi.doMock('node:fs', async () => {
       const actual = await vi.importActual<typeof import('node:fs')>('node:fs')
@@ -42,7 +45,7 @@ describe('module loader branches', () => {
     const { loadModule } = await import('@mokup/core')
 
     try {
-      const tsMod = await loadModule('/tmp/mock.ts')
+      const tsMod = await loadModule(sourceFile)
       expect(tsMod?.value).toBe('ts')
       expect(register).toHaveBeenCalledTimes(1)
       const [options] = register.mock.calls[0] ?? []

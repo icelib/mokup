@@ -1,7 +1,7 @@
 {
   "name": "@mokup/server",
   "type": "module",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "Server adapters for @mokup/runtime.",
   "license": "MIT",
   "homepage": "https://mokup.icebreaker.top",
@@ -122,14 +122,24 @@
     "test:types": "tsd"
   },
   "dependencies": {
-    "@hono/node-server": "^2.1.5",
+    "@hono/node-server": "catalog:",
     "@mokup/core": "workspace:*",
     "@mokup/playground": "workspace:*",
     "@mokup/runtime": "workspace:*",
     "@mokup/shared": "workspace:*",
+    "fastify-plugin": "^6.0.1",
     "ws": "^8.22.0"
   },
+  "tsd": {
+    "compilerOptions": {
+      "module": "NodeNext",
+      "rootDir": "."
+    }
+  },
   "devDependencies": {
-    "@types/ws": "^8.18.2"
+    "@types/koa": "^3.0.3",
+    "@types/ws": "^8.18.2",
+    "fastify": "^5.12.7",
+    "koa": "^3.2.1"
   }
 }

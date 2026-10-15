@@ -1,4 +1,5 @@
 import type { resolveSwConfig, resolveSwUnregisterConfig } from '../../internal/core'
+import { buildSwRegistrationScript } from '../../shared/sw-registration-script'
 
 function buildSwLifecycleScript(params: {
   importPath: string
@@ -36,17 +37,7 @@ function buildSwLifecycleScript(params: {
   }
   const path = resolveRequestPath(swConfig.path)
   const scope = resolveRegisterScope(swConfig.scope)
-  return [
-    `import { registerMokupServiceWorker } from ${JSON.stringify(importPath)}`,
-    '(async () => {',
-    `  const registration = await registerMokupServiceWorker({ path: ${JSON.stringify(path)}, scope: ${JSON.stringify(scope)} })`,
-    '  if (import.meta.hot && registration) {',
-    '    import.meta.hot.on(\'mokup:routes-changed\', () => {',
-    '      registration.update()',
-    '    })',
-    '  }',
-    '})()',
-  ].join('\n')
+  return buildSwRegistrationScript(importPath, path, scope)
 }
 
 export { buildSwLifecycleScript }

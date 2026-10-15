@@ -13,11 +13,11 @@ async function transformMokupIndexHtml(
     swConfig: ResolvedSwConfig | null
     unregisterConfig: ResolvedSwConfig
     hasSwEntries: boolean
-    hasSwRoutes: boolean
     resolveSwImportPath: (base: string) => string
     resolveRequestPath: (path: string) => string
     resolveRegisterScope: (scope: string) => string
     swLifecycleFileName: string | null
+    swLifecycleImportPath: string
     resolveHtmlAssetPath: (path: string) => string
   },
 ): Promise<string | IndexHtmlTransformResult> {
@@ -29,7 +29,7 @@ async function transformMokupIndexHtml(
     swConfig: params.swConfig,
     unregisterConfig: params.unregisterConfig,
     hasSwEntries: params.hasSwEntries,
-    hasSwRoutes: params.hasSwRoutes,
+    hasSwRoutes: !!params.swConfig && params.state.swRoutes.length > 0,
     resolveRequestPath: params.resolveRequestPath,
     resolveRegisterScope: params.resolveRegisterScope,
   })
@@ -57,8 +57,7 @@ async function transformMokupIndexHtml(
     tags: [
       {
         tag: 'script',
-        attrs: { type: 'module' },
-        children: script,
+        attrs: { type: 'module', src: params.swLifecycleImportPath },
         injectTo: 'head' as const,
       },
     ],

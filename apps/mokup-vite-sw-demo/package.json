@@ -1,11 +1,11 @@
 {
   "name": "mokup-vite-sw-demo",
   "type": "module",
-  "version": "0.0.28",
+  "version": "0.0.29",
   "private": true,
   "homepage": "https://mokup.icebreaker.top",
   "engines": {
-    "node": "^24.11.0 || >=26.0.0"
+    "node": ">=24.15.0"
   },
   "scripts": {
     "dev": "vite",

@@ -1,0 +1,115 @@
+"@mokup/cli@2.1.0":
+  dir: packages/cli
+  intents:
+    - check-mock-routes
+    - cli-external-handler-paths
+    - escape-generated-module-specifiers
+    - modern-dependency-stack
+    - upgrade-repoctl-toolchain
+"@mokup/client@1.0.1":
+  dir: packages/client
+  intents:
+    - client-request-semantics
+    - fetch-duplicate-headers
+    - upgrade-repoctl-toolchain
+"@mokup/core@2.0.1":
+  dir: packages/core
+  intents:
+    - bodyless-response-overrides
+    - core-http-request-boundaries
+    - dynamic-playground-preview-sw
+    - escape-generated-module-specifiers
+    - explicit-head-routes
+    - literal-route-grammar
+    - modern-dependency-stack
+    - playground-asset-symlink-boundary
+    - playground-mount-boundaries
+    - playground-output-boundaries
+    - playground-preview-snapshot
+    - reject-non-http-request-targets
+    - request-body-stream-lifecycle
+    - service-worker-hmr-readiness
+    - service-worker-overlapping-updates
+    - service-worker-startup-listener
+    - upgrade-repoctl-toolchain
+    - vite-module-identities
+"@mokup/playground@1.0.1":
+  dir: packages/playground
+  intents:
+    - modern-dependency-stack
+    - playground-mount-boundaries
+    - playground-request-copy
+    - playground-static-build
+    - upgrade-repoctl-toolchain
+"@mokup/query@1.0.1":
+  dir: packages/query
+  intents:
+    - client-request-semantics
+    - query-bodyless-responses
+    - query-fetch-contracts
+    - upgrade-repoctl-toolchain
+"@mokup/runtime@2.1.0":
+  dir: packages/runtime
+  intents:
+    - bodyless-response-overrides
+    - explicit-head-routes
+    - literal-route-grammar
+    - preserve-binary-request-bodies
+    - runtime-response-fields
+    - runtime-route-preflight
+    - upgrade-repoctl-toolchain
+"@mokup/server@2.0.1":
+  dir: packages/server
+  intents:
+    - bodyless-response-overrides
+    - explicit-head-routes
+    - fetch-server-refresh-lifecycle
+    - literal-route-grammar
+    - modern-dependency-stack
+    - node-adapter-request-errors
+    - playground-mount-boundaries
+    - preserve-binary-request-bodies
+    - preserve-request-record-keys
+    - preserve-unmatched-request-bodies
+    - reject-non-http-request-targets
+    - request-body-stream-lifecycle
+    - server-response-cookies
+    - upgrade-repoctl-toolchain
+"@mokup/shared@2.0.1":
+  dir: packages/shared
+  intents:
+    - bodyless-response-overrides
+    - cli-external-handler-paths
+    - explicit-head-routes
+    - literal-route-grammar
+    - modern-dependency-stack
+    - native-module-refresh
+    - native-typescript-formats
+    - path-filter-regexp-state
+    - preflight-stream-lifecycle
+    - request-body-stream-lifecycle
+    - upgrade-repoctl-toolchain
+mokup@3.1.0:
+  dir: packages/mokup
+  intents:
+    - atomic-vite-route-refresh
+    - browser-sw-update-ownership
+    - check-mock-routes
+    - close-webpack-refresh-sessions
+    - dynamic-playground-preview-sw
+    - escape-generated-module-specifiers
+    - literal-route-grammar
+    - modern-dependency-stack
+    - playground-preview-snapshot
+    - preserve-binary-request-bodies
+    - reject-non-http-request-targets
+    - service-worker-hmr-readiness
+    - service-worker-overlapping-updates
+    - service-worker-startup-listener
+    - sw-http-request-boundary
+    - sw-output-base-path
+    - upgrade-repoctl-toolchain
+    - vite-empty-route-lifecycle
+    - vite-preview-built-worker
+    - vite-refresh-lifecycle
+    - vite-worker-hmr-invalidation

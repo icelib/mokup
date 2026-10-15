@@ -1,5 +1,28 @@
 # @mokup/playground
 
+## 1.0.1
+
+### Patch Changes
+
+- Upgrade runtime dependencies, migrate Node WebSocket support to `@hono/node-server` 2, and add Vite 8 peer compatibility.
+
+- Match Playground mounts at complete path segments so neighboring application routes are not served as Playground assets. Preserve base aliases, correctly apply bases whose names only prefix a path segment, and serve the index, route list, and assets when Playground is mounted at `/`.
+
+  Keep mock routes reachable alongside a root-mounted Playground and register its WebSocket metrics endpoint at `/ws`.
+
+  Preserve `/` as the initialized root mount in the Playground UI so explicitly enabled WebSocket metrics connect to `/ws`, while route requests continue to use `/routes`.
+
+- Generate executable Fetch snippets and safely quoted cURL commands from Playground requests using the current origin. Preserve query parameters and raw text, correctly encode form fields, and keep text values beginning with `@` from being treated as local file uploads by cURL. Keep the copy menu open when its button is clicked after hovering.
+
+- Build reusable playground assets without loading documentation demo mocks. Keep the demo routes available during development and preview, and remove the build dependency on an already-built mokup package.
+
+- Update runtime dependencies and the shared build toolchain to current compatible releases, including stable Rolldown and Vite 8 support. Preserve the published packages' Node.js runtime requirement of `^20.19.0 || >=22.12.0`.
+
+  Migrate repository tooling and release management to repoctl and pnpm 12 native versioning. Development, builds, and CI use Node.js 24 LTS from 24.15.0; TypeScript remains on its latest compatible release line. Integrate the Hono Node server 2.x WebSocket migration while retaining the published Node.js runtime range.
+
+- Updated dependencies:
+  - @mokup/runtime@2.1.0
+
 ## 1.0.0
 
 ### Major Changes

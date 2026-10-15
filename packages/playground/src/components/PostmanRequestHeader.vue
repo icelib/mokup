@@ -82,13 +82,6 @@ function closeCopyMenu(options: { focusButton?: boolean } = {}) {
     })
   }
 }
-function toggleCopyMenu() {
-  if (copyMenuOpen.value) {
-    closeCopyMenu()
-    return
-  }
-  openCopyMenu()
-}
 function scheduleCopyMenuClose() {
   clearCopyMenuCloseTimeout()
   copyMenuCloseTimeout = setTimeout(() => {
@@ -161,7 +154,7 @@ function handleCopyUrl() {
 function resolveCopyBuildOptions() {
   return resolveCopyOptions({
     method: props.selected.method,
-    url: props.requestUrl,
+    url: new URL(props.requestUrl, window.location.origin).href,
     headersText: props.headersText,
     bodyType: props.bodyType,
     rawType: props.rawType,
@@ -219,7 +212,7 @@ onBeforeUnmount(() => {
           aria-haspopup="menu"
           @mouseenter="keepCopyMenuOpen"
           @mouseleave="scheduleCopyMenuClose"
-          @click="toggleCopyMenu"
+          @click="openCopyMenu"
           @keydown.down.prevent="openCopyMenu"
         >
           <span

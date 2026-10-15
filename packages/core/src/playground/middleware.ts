@@ -5,9 +5,11 @@ import type { Logger, RouteTable } from '../shared/types'
 import type { PlaygroundDistResolver } from './assets'
 import type { PlaygroundConfig } from './config'
 import { promises as fs } from 'node:fs'
+import { isInDirs } from '@mokup/shared/path-utils'
 import { extname, join, normalize } from '@mokup/shared/pathe'
+import { parseRequestUrl, sendInvalidRequestUrl } from '../shared/request-url'
 import { mimeTypes, resolvePlaygroundDist, sendFile, sendJson } from './assets'
-import { resolvePlaygroundRequestPath } from './config'
+import { matchPlaygroundRequestPath } from './config'
 import { resolveGroupRoot, resolveGroups } from './grouping'
 import { injectPlaygroundHmr, injectPlaygroundSw, isViteDevServer } from './inject'
 import {
@@ -18,6 +20,17 @@ import {
 } from './serialize'
 
 const LEADING_SLASH_RE = /^\/+/
+
+async function resolvePlaygroundAsset(distDir: string, filePath: string) {
+  const [resolvedRoot, resolvedFile] = await Promise.all([
+    fs.realpath(distDir),
+    fs.realpath(filePath),
+  ])
+  if (!isInDirs(resolvedFile, [resolvedRoot])) {
+    throw new Error('Playground asset path escapes the distribution directory.')
+  }
+  return resolvedFile
+}
 
 /**
  * Create middleware that serves the playground UI and routes data.
@@ -30,7 +43,7 @@ const LEADING_SLASH_RE = /^\/+/
  * @param params.getDisabledConfigFiles - Getter for disabled config files.
  * @param params.config - Playground config.
  * @param params.logger - Logger instance.
- * @param params.getServer - Getter for the active dev server.
+ * @param params.getServer - Getter for the active Vite server.
  * @param params.getDirs - Getter for scanned directories.
  * @param params.getSwScript - Getter for service worker lifecycle script.
  * @param params.resolvePlaygroundDist - Resolver for playground dist location.
@@ -67,20 +80,18 @@ export function createPlaygroundMiddleware(params: {
       return next()
     }
     const server = params.getServer?.()
-    const requestPath = resolvePlaygroundRequestPath(server?.config?.base ?? '/', playgroundPath)
     const requestUrl = req.url ?? '/'
-    const url = new URL(requestUrl, 'http://mokup.local')
-    const pathname = url.pathname
-    const matchedPath = pathname.startsWith(requestPath)
-      ? requestPath
-      : pathname.startsWith(playgroundPath)
-        ? playgroundPath
-        : null
-    if (!matchedPath) {
+    const url = parseRequestUrl(requestUrl)
+    if (!url) {
+      sendInvalidRequestUrl(res)
+      return
+    }
+    const match = matchPlaygroundRequestPath(url.pathname, server?.config?.base ?? '/', playgroundPath)
+    if (!match) {
       return next()
     }
 
-    const subPath = pathname.slice(matchedPath.length)
+    const { mountPath: matchedPath, subPath } = match
     if (subPath === '') {
       const suffix = url.search ?? ''
       res.statusCode = 302
@@ -88,14 +99,17 @@ export function createPlaygroundMiddleware(params: {
       res.end()
       return
     }
-    if (subPath === '' || subPath === '/' || subPath === '/index.html') {
+    if (subPath === '/' || subPath === '/index.html') {
       try {
-        const html = await fs.readFile(indexPath, 'utf8')
+        const html = await fs.readFile(
+          await resolvePlaygroundAsset(distDir, indexPath),
+          'utf8',
+        )
         let output = html
         if (isViteDevServer(server)) {
           output = injectPlaygroundHmr(output, server.config.base ?? '/')
-          output = injectPlaygroundSw(output, params.getSwScript?.())
         }
+        output = injectPlaygroundSw(output, params.getSwScript?.())
         const contentType = mimeTypes['.html'] ?? 'text/html; charset=utf-8'
         sendFile(res, output, contentType)
       }
@@ -140,8 +154,9 @@ export function createPlaygroundMiddleware(params: {
     const normalizedPath = normalize(relPath)
     const filePath = join(distDir, normalizedPath)
     try {
-      const content = await fs.readFile(filePath)
-      const ext = extname(filePath)
+      const safeFilePath = await resolvePlaygroundAsset(distDir, filePath)
+      const content = await fs.readFile(safeFilePath)
+      const ext = extname(safeFilePath)
       const contentType = mimeTypes[ext] ?? 'application/octet-stream'
       sendFile(res, content, contentType)
     }

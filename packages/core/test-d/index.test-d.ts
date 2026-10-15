@@ -1,5 +1,3 @@
-/* eslint-disable antfu/no-import-dist */
-import type { IncomingMessage, ServerResponse } from 'node:http'
 import type {
   DiagnosticCategory,
   DiagnosticErrorMode,
@@ -11,8 +9,8 @@ import type {
   RouteSkipInfo,
   RouteTable,
   VitePluginOptions,
-} from '../dist/index.mjs'
-import { expectAssignable, expectType } from 'tsd'
+} from '@mokup/core'
+import type { IncomingMessage, ServerResponse } from 'node:http'
 import {
   buildBundleModule,
   createHonoApp,
@@ -22,7 +20,8 @@ import {
   resolveSwConfig,
   resolveSwUnregisterConfig,
   scanRoutes,
-} from '../dist/index.mjs'
+} from '@mokup/core'
+import { expectAssignable, expectType } from 'tsd'
 
 const logger: Logger = {
   info: () => {},

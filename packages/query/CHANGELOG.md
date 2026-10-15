@@ -1,5 +1,26 @@
 # @mokup/query
 
+## 1.0.1
+
+### Patch Changes
+
+- Preserve native Fetch Request body, init override, cancellation, keepalive, and redirect semantics. Buffer bodies when rewriting Request URLs so binary and multipart payloads remain replayable.
+
+  Preserve Axios base URL paths, absolute URL policy, protocol-relative host checks, and current instance defaults in both the client adapter and query executor. Keep native Axios header values and invalid URL rejection, and correct the Axios type augmentation.
+
+- Return an empty string for successful HEAD requests and HTTP 204/205 responses in the default Fetch executor, including responses with a JSON content type. Preserve HTTP errors, JSON parse errors on ordinary successful responses, and custom transform ownership of response handling.
+
+- Reject non-2xx responses in the default Fetch executor with an exported MokupHttpError that preserves the original, unread Response and exposes its status and statusText. Custom transformResponse handlers continue to control all status handling and response parsing.
+
+  JSON-encode plain object and array request bodies, including null-prototype and cross-realm objects, and add application/json only when Content-Type is absent. Preserve explicit content types and native Fetch body values.
+
+- Update runtime dependencies and the shared build toolchain to current compatible releases, including stable Rolldown and Vite 8 support. Preserve the published packages' Node.js runtime requirement of `^20.19.0 || >=22.12.0`.
+
+  Migrate repository tooling and release management to repoctl and pnpm 12 native versioning. Development, builds, and CI use Node.js 24 LTS from 24.15.0; TypeScript remains on its latest compatible release line. Integrate the Hono Node server 2.x WebSocket migration while retaining the published Node.js runtime range.
+
+- Updated dependencies:
+  - @mokup/client@1.0.1
+
 ## 1.0.0
 
 ### Major Changes

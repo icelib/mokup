@@ -214,6 +214,70 @@ describe('vite plugin route refresh', () => {
     expect(server.moduleGraph.invalidateModule).toHaveBeenCalledWith(workerImporter)
   })
 
+  it('invalidates virtual modules in each Vite environment graph', async () => {
+    const parsed = parseRouteTemplate('/ping')
+    mocks.scanRoutes.mockResolvedValueOnce([
+      {
+        file: '/root/mock/ping.get.json',
+        template: parsed.template,
+        method: 'GET',
+        tokens: parsed.tokens,
+        score: parsed.score,
+        handler: { ok: true },
+      },
+    ])
+
+    const state = {
+      routes: [],
+      serverRoutes: [],
+      swRoutes: [],
+      disabledRoutes: [],
+      ignoredRoutes: [],
+      configFiles: [],
+      disabledConfigFiles: [],
+      app: null,
+      lastSignature: 'old',
+      swModuleVersion: 0,
+    }
+
+    const workerImporter = { id: '/worker/index.ts', importers: new Set() }
+    const workerModule = {
+      id: '\0virtual:mokup-bundle',
+      importers: new Set([workerImporter]),
+    }
+    const legacyModule = { id: '\0virtual:mokup-bundle' }
+    const workerGraph = {
+      getModuleById: vi.fn().mockReturnValue(workerModule),
+      invalidateModule: vi.fn(),
+    }
+    const server = {
+      ws: { send: vi.fn() },
+      moduleGraph: {
+        getModuleById: vi.fn().mockReturnValue(legacyModule),
+        invalidateModule: vi.fn(),
+      },
+      environments: {
+        client: { moduleGraph: undefined },
+        web_mokup_worker: { moduleGraph: workerGraph },
+      },
+    }
+
+    const refresher = createRouteRefresher({
+      state: state as never,
+      optionList: [{ dir: '/root/mock', prefix: '/api' }],
+      root: () => '/root',
+      logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
+      enableViteMiddleware: false,
+      virtualModuleIds: ['\0virtual:mokup-bundle'],
+    })
+
+    await refresher(server as never)
+
+    expect(server.moduleGraph.invalidateModule).toHaveBeenCalledWith(legacyModule)
+    expect(workerGraph.invalidateModule).toHaveBeenCalledWith(workerModule)
+    expect(workerGraph.invalidateModule).toHaveBeenCalledWith(workerImporter)
+  })
+
   it('forces virtual module invalidation when signatures are unchanged', async () => {
     const parsed = parseRouteTemplate('/about')
     const route = {

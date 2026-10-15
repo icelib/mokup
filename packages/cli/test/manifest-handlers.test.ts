@@ -161,7 +161,7 @@ describe('manifest handler helpers', () => {
       const indexContent = await fs.readFile(path.join(handlersDir, 'index.mjs'), 'utf8')
       const relImport = path.relative(handlersDir, path.resolve(outDir, modulePath))
       const importPath = relImport.startsWith('.') ? relImport : `./${relImport}`
-      expect(indexContent).toContain(`import * as module0 from '${toPosixPath(importPath)}'`)
+      expect(indexContent).toContain(`import * as module0 from ${JSON.stringify(toPosixPath(importPath))}`)
     }
     finally {
       await fs.rm(root, { recursive: true, force: true })

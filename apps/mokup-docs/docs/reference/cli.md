@@ -1,6 +1,50 @@
 # CLI
 
-`mokup` provides both `build` and `serve` commands.
+`mokup` provides `check`, `build`, and `serve` commands.
+
+## Check
+
+Validate mock routes before committing or in CI, without generating `.mokup` files or starting a server:
+
+```sh
+pnpm exec mokup check --dir mock
+pnpm exec mokup check --dir mock --json
+pnpm exec mokup check --dir mock --error-on duplicate-route
+```
+
+`check` uses the same directory configuration, route discovery and filters as `build`. It accepts `--dir`, `--root`, `--prefix`, `--include`, `--exclude`, `--ignore-prefix`, and repeated `--error-on` options. Function handlers count as routes but are not called. Module initialization and directory configuration hooks still run while their files are loaded.
+
+By default, every supported route diagnostic fails the check. Use `--error-on` to fail only selected categories; the report still includes every diagnostic. An existing empty directory, or one with all routes filtered out or disabled, succeeds with zero routes. Missing directories, invalid selected JSON/JSONC files, and module-loading errors fail the check. This command does not perform TypeScript type checking or execute request middleware.
+
+Exit code `0` means the check passed; `1` means diagnostics matched the error policy or scanning failed. `--json` writes a single report to stdout instead of Mokup log messages:
+
+```json
+{
+  "schemaVersion": 1,
+  "valid": true,
+  "routeCount": 2,
+  "diagnostics": []
+}
+```
+
+Diagnostic entries include `category`, `label`, `count`, `items`, and optional `advice`. File items use paths relative to the project root. A scanning failure also includes `error.message`, with `valid: false`, `routeCount: 0`, and no diagnostic entries. Keep console output from your own mock modules off stdout when consuming JSON reports.
+
+For programmatic checks:
+
+```ts
+import { checkManifest } from 'mokup/cli'
+
+const result = await checkManifest({
+  dir: 'mock',
+  errorOn: ['duplicate-route'],
+})
+
+if (!result.valid) {
+  console.error(result.diagnostics)
+}
+```
+
+`checkManifest()` defaults to `errorOn: 'all'`; `errorOn: []` returns diagnostics without failing on them. It rejects on scanning failures such as missing directories or module import errors. It accepts no output-directory or handler-bundling options.
 
 ## Build
 

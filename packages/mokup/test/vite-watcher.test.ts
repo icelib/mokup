@@ -1,316 +1,113 @@
-import { describe, expect, it, vi } from 'vitest'
+import type { PreviewServer, ViteDevServer } from 'vite'
+import type { WatcherController } from '../src/vite/plugin/watcher'
+import { EventEmitter } from 'node:events'
+import path from 'node:path'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { setupPreviewWatchers, setupViteWatchers } from '../src/vite/plugin/watcher'
 
-const previewMocks = vi.hoisted(() => {
-  const handlers: Record<string, Array<(event: string, rawPath?: unknown, details?: unknown) => void>> = {
-    add: [],
-    change: [],
-    unlink: [],
-    raw: [],
-  }
-  const close = vi.fn()
-  const watch = vi.fn().mockReturnValue({
-    on: (event: string, handler: (eventName: string, rawPath?: unknown, details?: unknown) => void) => {
-      if (event in handlers) {
-        handlers[event].push(handler)
-      }
-      return this
-    },
-    close,
-  })
-  return { handlers, close, watch }
-})
+const root = path.resolve('/root')
+const mockDir = path.join(root, 'mock')
+const controllers: WatcherController[] = []
+const previewMocks = vi.hoisted(() => ({ watch: vi.fn() }))
 
 vi.mock('@mokup/shared/chokidar', () => ({
   default: { watch: previewMocks.watch },
 }))
 
-describe('vite plugin watchers', () => {
-  it('refreshes on vite watcher events', () => {
-    vi.useFakeTimers()
-    const refresh = vi.fn()
-    const handlers: Record<string, Array<(file: string, details?: unknown) => void>> = {
-      add: [],
-      change: [],
-      unlink: [],
-      raw: [],
-    }
-    const server = {
-      config: { root: '/root' },
-      watcher: {
-        add: vi.fn(),
-        on: (event: string, handler: (file: string, details?: unknown) => void) => {
-          if (event in handlers) {
-            handlers[event].push(handler)
-          }
-        },
-      },
-    }
+function createSetup(kind: 'dev' | 'preview', configRoot: string | null = root) {
+  const watcher = Object.assign(new EventEmitter(), {
+    add: vi.fn(),
+    close: vi.fn().mockResolvedValue(undefined),
+  })
+  const refresh = vi.fn()
+  const server = { config: { root: configRoot ?? undefined }, watcher }
+  const params = { root, dirs: [mockDir], refresh }
+  previewMocks.watch.mockReturnValue(watcher)
+  const controller = kind === 'dev'
+    ? setupViteWatchers({ ...params, server: server as unknown as ViteDevServer })
+    : setupPreviewWatchers({ ...params, server: server as unknown as PreviewServer })
+  controllers.push(controller)
+  return { watcher, refresh, server, controller }
+}
 
-    setupViteWatchers({
-      server: server as any,
-      root: '/root',
-      dirs: ['/root/mock'],
-      refresh,
-    })
+beforeEach(() => {
+  vi.useFakeTimers()
+  previewMocks.watch.mockReset()
+})
 
-    handlers.add.forEach(handler => handler('/root/mock/users.get.json'))
-    handlers.raw.forEach(handler => handler('rename', 'mock/users.get.json', { watchedPath: '/root' }))
+afterEach(async () => {
+  await Promise.all(controllers.splice(0).map(controller => controller.close()))
+  vi.useRealTimers()
+  vi.restoreAllMocks()
+})
 
-    vi.advanceTimersByTime(80)
-    expect(refresh).toHaveBeenCalled()
-    vi.useRealTimers()
+describe.each(['dev', 'preview'] as const)('%s plugin watchers', (kind) => {
+  it('debounces matching file events into one forced refresh', () => {
+    const { watcher, refresh } = createSetup(kind)
+
+    watcher.emit('add', path.join(mockDir, 'users.get.json'))
+    watcher.emit('change', 'mock/users.get.json')
+    watcher.emit('unlink', 'mock/users.get.json')
+    vi.advanceTimersByTime(79)
+    expect(refresh).not.toHaveBeenCalled()
+    vi.advanceTimersByTime(1)
+    expect(refresh).toHaveBeenCalledExactlyOnceWith({ force: true })
   })
 
-  it('closes preview watcher on server close', () => {
-    const closeListeners: Array<() => void> = []
-    const server = {
-      config: { root: '/root' },
-      httpServer: {
-        once: (_event: string, handler: () => void) => {
-          closeListeners.push(handler)
-        },
-      },
-    }
+  it('ignores empty paths, unrelated directories, and non-rename raw events', () => {
+    const { watcher, refresh } = createSetup(kind)
 
-    const watcher = setupPreviewWatchers({
-      server: server as any,
-      root: '/root',
-      dirs: ['/root/mock'],
-      refresh: vi.fn(),
-    })
-
-    expect(watcher).not.toBeNull()
-    closeListeners.forEach(handler => handler())
-    expect(previewMocks.close).toHaveBeenCalled()
-  })
-
-  it('ignores raw watcher events outside target dirs', () => {
-    vi.useFakeTimers()
-    const refresh = vi.fn()
-    const handlers: Record<string, Array<(eventName: string, rawPath?: unknown, details?: unknown) => void>> = {
-      add: [],
-      change: [],
-      unlink: [],
-      raw: [],
-    }
-    const server = {
-      config: { root: '/root' },
-      watcher: {
-        add: vi.fn(),
-        on: (event: string, handler: (eventName: string, rawPath?: unknown, details?: unknown) => void) => {
-          if (event in handlers) {
-            handlers[event].push(handler)
-          }
-        },
-      },
-    }
-
-    setupViteWatchers({
-      server: server as any,
-      root: '/root',
-      dirs: ['/root/mock'],
-      refresh,
-    })
-
-    handlers.raw.forEach(handler => handler('change', 'mock/users.get.json'))
-    handlers.raw.forEach(handler => handler('rename', { toString: () => '' }))
-    handlers.raw.forEach(handler => handler('rename', { toString: () => 'other/file.json' }, { watchedPath: '/root' }))
-
+    watcher.emit('add', '')
+    watcher.emit('change', path.join(root, 'other/users.get.json'))
+    watcher.emit('raw', 'change', 'mock/users.get.json')
+    watcher.emit('raw', 'rename', null)
+    watcher.emit('raw', 'rename', { toString: () => '' })
+    watcher.emit('raw', 'rename', { toString: () => 'other/file.json' }, { watchedPath: root })
     vi.advanceTimersByTime(80)
     expect(refresh).not.toHaveBeenCalled()
-    vi.useRealTimers()
   })
 
-  it('refreshes preview watcher on raw rename events', () => {
-    vi.useFakeTimers()
-    const refresh = vi.fn()
-    const server = {
-      config: { root: '/root' },
-      httpServer: {
-        once: vi.fn(),
-      },
-    }
+  it('resolves raw rename events against their watched path', () => {
+    const { watcher, refresh } = createSetup(kind)
 
-    setupPreviewWatchers({
-      server: server as any,
-      root: '/root',
-      dirs: ['/root/mock'],
-      refresh,
-    })
-
-    previewMocks.handlers.raw.forEach(handler => handler('rename', 'mock/users.get.json'))
+    watcher.emit('raw', 'rename', { toString: () => 'users.get.json' }, { watchedPath: mockDir })
     vi.advanceTimersByTime(80)
-    expect(refresh).toHaveBeenCalled()
-    vi.useRealTimers()
+    expect(refresh).toHaveBeenCalledExactlyOnceWith({ force: true })
   })
 
-  it('handles empty files and fallback roots', () => {
-    vi.useFakeTimers()
-    const refresh = vi.fn()
-    const handlers: Record<string, Array<(file: string, details?: unknown) => void>> = {
-      add: [],
-      change: [],
-      unlink: [],
-      raw: [],
-    }
-    const server = {
-      config: {},
-      watcher: {
-        add: vi.fn(),
-        on: (event: string, handler: (file: string, details?: unknown) => void) => {
-          if (event in handlers) {
-            handlers[event].push(handler)
-          }
-        },
-      },
-    }
+  it('uses the configured root for raw events without a watched path', () => {
+    const { watcher, refresh } = createSetup(kind)
 
-    setupViteWatchers({
-      server: server as any,
-      root: '/root',
-      dirs: ['/root/mock'],
-      refresh,
-    })
-
-    handlers.add.forEach(handler => handler(''))
-    handlers.raw.forEach(handler => handler('rename', { toString: () => 'mock/users.get.json' }))
-    handlers.raw.forEach(handler => handler('rename', null))
-
+    watcher.emit('raw', 'rename', 'mock/users.get.json')
+    watcher.emit('raw', 'rename', 'mock/users.get.json', { watchedPath: undefined })
     vi.advanceTimersByTime(80)
-    expect(refresh).toHaveBeenCalled()
-    vi.useRealTimers()
+    expect(refresh).toHaveBeenCalledOnce()
   })
 
-  it('handles preview raw watcher variations', () => {
-    vi.useFakeTimers()
-    const refresh = vi.fn()
-    const server = {
-      config: {},
-      httpServer: {
-        once: vi.fn(),
-      },
-    }
+  it('falls back to the supplied root when the server root is missing', () => {
+    const { watcher, refresh } = createSetup(kind, null)
 
-    setupPreviewWatchers({
-      server: server as any,
-      root: '/root',
-      dirs: ['/root/mock'],
-      refresh,
-    })
-
-    previewMocks.handlers.raw.forEach(handler => handler('change', 'mock/skip.json'))
-    previewMocks.handlers.raw.forEach(handler => handler('rename', { toString: () => '' }))
-    previewMocks.handlers.raw.forEach(handler => handler(
-      'rename',
-      { toString: () => 'mock/users.get.json' },
-      { watchedPath: '/root' },
-    ))
-    previewMocks.handlers.add.forEach(handler => handler('/root/mock/users.get.json'))
-
+    watcher.emit('raw', 'rename', 'mock/users.get.json', { watchedPath: undefined })
     vi.advanceTimersByTime(80)
-    expect(refresh).toHaveBeenCalled()
-    vi.useRealTimers()
+    expect(refresh).toHaveBeenCalledOnce()
   })
 
-  it('handles raw rename details and ignores preview files outside dirs', () => {
-    vi.useFakeTimers()
-    const refresh = vi.fn()
-    const handlers: Record<string, Array<(eventName: string, rawPath?: unknown, details?: unknown) => void>> = {
-      add: [],
-      change: [],
-      unlink: [],
-      raw: [],
-    }
-    const server = {
-      config: { root: '/root' },
-      watcher: {
-        add: vi.fn(),
-        on: (event: string, handler: (eventName: string, rawPath?: unknown, details?: unknown) => void) => {
-          if (event in handlers) {
-            handlers[event].push(handler)
-          }
-        },
-      },
-    }
+  it('keeps the original root when the server configuration is replaced', () => {
+    const { watcher, refresh, server } = createSetup(kind)
+    server.config = { root: path.join(root, 'replacement') }
 
-    setupViteWatchers({
-      server: server as any,
-      root: '/root',
-      dirs: ['/root/mock'],
-      refresh,
-    })
-
-    handlers.raw.forEach(handler => handler('rename', 'mock/users.get.json', { watchedPath: undefined }))
+    watcher.emit('add', 'mock/users.get.json')
     vi.advanceTimersByTime(80)
-    expect(refresh).toHaveBeenCalled()
-
-    const previewServer = {
-      config: { root: '/root' },
-      httpServer: { once: vi.fn() },
-    }
-
-    setupPreviewWatchers({
-      server: previewServer as any,
-      root: '/root',
-      dirs: ['/root/mock'],
-      refresh,
-    })
-
-    previewMocks.handlers.add.forEach(handler => handler('/root/other/users.get.json'))
-    vi.advanceTimersByTime(80)
-    expect(refresh).toHaveBeenCalledTimes(1)
-    vi.useRealTimers()
+    expect(refresh).toHaveBeenCalledOnce()
   })
+})
 
-  it('falls back to params.root when watcher roots are missing', () => {
-    vi.useFakeTimers()
-    const refresh = vi.fn()
-    const handlers: Record<string, Array<(eventName: string, rawPath?: unknown, details?: unknown) => void>> = {
-      add: [],
-      change: [],
-      unlink: [],
-      raw: [],
-    }
-    const server = {
-      config: {},
-      watcher: {
-        add: vi.fn(),
-        on: (event: string, handler: (eventName: string, rawPath?: unknown, details?: unknown) => void) => {
-          if (event in handlers) {
-            handlers[event].push(handler)
-          }
-        },
-      },
-    }
+it('adds development mock directories to the shared watcher', () => {
+  const { watcher } = createSetup('dev')
+  expect(watcher.add).toHaveBeenCalledExactlyOnceWith([mockDir])
+})
 
-    setupViteWatchers({
-      server: server as any,
-      root: '/root',
-      dirs: ['/root/mock'],
-      refresh,
-    })
-
-    handlers.raw.forEach(handler => handler('rename', 'mock/users.get.json', { watchedPath: undefined }))
-    vi.advanceTimersByTime(80)
-    expect(refresh).toHaveBeenCalled()
-
-    const previewServer = {
-      config: {},
-      httpServer: { once: vi.fn() },
-    }
-    setupPreviewWatchers({
-      server: previewServer as any,
-      root: '/root',
-      dirs: ['/root/mock'],
-      refresh,
-    })
-
-    previewMocks.handlers.raw.forEach(handler =>
-      handler('rename', 'mock/users.get.json', { watchedPath: undefined }),
-    )
-    vi.advanceTimersByTime(80)
-    expect(refresh).toHaveBeenCalledTimes(2)
-    vi.useRealTimers()
-  })
+it('creates a dedicated preview watcher without scanning initial files', () => {
+  createSetup('preview')
+  expect(previewMocks.watch).toHaveBeenCalledExactlyOnceWith([mockDir], { ignoreInitial: true })
 })

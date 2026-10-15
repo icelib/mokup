@@ -19,6 +19,7 @@ const mocks = vi.hoisted(() => {
 
 vi.mock('../src/manifest', () => ({
   buildManifest: mocks.buildManifest,
+  checkManifest: vi.fn(),
 }))
 
 vi.mock('@mokup/server/node', () => ({

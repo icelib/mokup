@@ -1,96 +1,59 @@
 import type { ManifestRoute, RuntimeResult } from '../types'
+import { applyResponseOverrides } from '@mokup/shared/response-overrides'
+
+const TEXT_APPLICATION_TYPES = new Set([
+  'application/ecmascript',
+  'application/javascript',
+  'application/json',
+  'application/json-seq',
+  'application/ndjson',
+  'application/x-ndjson',
+  'application/xml',
+  'application/xml-dtd',
+  'application/x-ecmascript',
+  'application/x-javascript',
+  'application/x-www-form-urlencoded',
+])
 
 function shouldTreatAsText(contentType: string) {
-  const normalized = contentType.toLowerCase()
-  if (!normalized) {
-    return true
-  }
-  if (
-    normalized.startsWith('text/')
-    || normalized.includes('json')
-    || normalized.includes('xml')
-    || normalized.includes('javascript')
-  ) {
-    return true
-  }
-  if (
-    normalized.startsWith('image/')
-    || normalized.startsWith('audio/')
-    || normalized.startsWith('video/')
-    || normalized.includes('octet-stream')
-  ) {
-    return false
-  }
-  if (
-    normalized.startsWith('application/')
-    && (normalized.includes('pdf') || normalized.includes('zip') || normalized.includes('gzip'))
-  ) {
-    return false
-  }
-  return true
+  const normalized = contentType.split(';', 1)[0]?.trim().toLowerCase() ?? ''
+  return !normalized
+    || normalized.startsWith('text/')
+    || normalized.endsWith('+json')
+    || normalized.endsWith('+xml')
+    || TEXT_APPLICATION_TYPES.has(normalized)
 }
 
 async function toRuntimeResult(response: Response): Promise<RuntimeResult> {
-  const headers: Record<string, string> = {}
+  const entries: Array<[string, string]> = []
   response.headers.forEach((value, key) => {
-    headers[key.toLowerCase()] = value
+    entries.push([key.toLowerCase(), value])
   })
+  const headers: Record<string, string> = Object.fromEntries(entries)
+  const setCookies = response.headers.getSetCookie?.() ?? []
+  if (setCookies.length) {
+    headers['set-cookie'] = setCookies[setCookies.length - 1]!
+  }
+  const result: RuntimeResult = {
+    status: response.status,
+    headers,
+    body: null,
+    ...(setCookies.length > 1 ? { setCookies } : {}),
+  }
 
   if (!response.body || [204, 205, 304].includes(response.status)) {
-    return {
-      status: response.status,
-      headers,
-      body: null,
-    }
+    return result
   }
 
   const contentType = headers['content-type'] ?? ''
-  if (shouldTreatAsText(contentType)) {
-    return {
-      status: response.status,
-      headers,
-      body: await response.text(),
-    }
-  }
-
-  const buffer = new Uint8Array(await response.arrayBuffer())
-  return {
-    status: response.status,
-    headers,
-    body: buffer,
-  }
+  result.body = shouldTreatAsText(contentType)
+    ? await response.text()
+    : new Uint8Array(await response.arrayBuffer())
+  return result
 }
 
-function isValidStatus(status: unknown): status is number {
-  return typeof status === 'number'
-    && Number.isFinite(status)
-    && status >= 200
-    && status <= 599
-}
-
-function resolveStatus(routeStatus: number | undefined, responseStatus: number) {
-  if (isValidStatus(routeStatus)) {
-    return routeStatus
-  }
-  if (isValidStatus(responseStatus)) {
-    return responseStatus
-  }
-  return 200
-}
-
-function applyRouteOverrides(response: Response, route: ManifestRoute) {
-  const headers = new Headers(response.headers)
-  const hasHeaders = !!route.headers && Object.keys(route.headers).length > 0
-  if (route.headers) {
-    for (const [key, value] of Object.entries(route.headers)) {
-      headers.set(key, value)
-    }
-  }
-  const status = resolveStatus(route.status, response.status)
-  if (status === response.status && !hasHeaders) {
-    return response
-  }
-  return new Response(response.body, { status, headers })
+function applyRouteOverrides(response: Response, route: ManifestRoute, method?: string) {
+  return applyResponseOverrides(response, route, method)
 }
 
 function resolveResponse(value: unknown, fallback: Response) {

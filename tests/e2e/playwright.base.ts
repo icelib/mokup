@@ -19,6 +19,7 @@ export function createPlaywrightConfig(options: BaseConfigOptions) {
   const baseUse: PlaywrightTestConfig['use'] = {
     browserName: 'chromium',
     channel: 'chrome',
+    headless: true,
     baseURL,
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',

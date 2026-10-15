@@ -21,6 +21,11 @@ function resolveRegisterPath(base: string, path: string) {
   return `${normalizedBase}${normalizedPath.slice(1)}`
 }
 
+function resolveSwOutputFileName(base: string, path: string) {
+  // Vite serves output files after removing the public base from the URL.
+  return resolveRegisterPath(base, path).slice(normalizeBase(base).length)
+}
+
 function resolveRegisterScope(base: string, scope: string) {
   const normalizedBase = normalizeBase(base)
   const normalizedScope = scope.startsWith('/') ? scope : `/${scope}`
@@ -64,5 +69,6 @@ export {
   resolveRegisterScope,
   resolveSwImportPath,
   resolveSwLoggerImportPath,
+  resolveSwOutputFileName,
   resolveSwRuntimeImportPath,
 }

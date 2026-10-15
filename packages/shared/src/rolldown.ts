@@ -14,7 +14,7 @@ export interface BuildOptions {
   absWorkingDir?: string
   bundle?: boolean
   entryNames?: string
-  entryPoints?: string[]
+  entryPoints?: string[] | Record<string, string>
   format?: 'cjs' | 'esm' | 'iife'
   logLevel?: 'debug' | 'error' | 'info' | 'silent' | 'warn'
   outbase?: string
@@ -62,7 +62,10 @@ function resolveEntryNamePattern(options: BuildOptions) {
   return `${pattern}${jsExtension}`
 }
 
-function normalizeInput(entryPoints: string[], options: BuildOptions) {
+function normalizeInput(entryPoints: string[] | Record<string, string>, options: BuildOptions) {
+  if (!Array.isArray(entryPoints)) {
+    return entryPoints
+  }
   const baseDir = options.outbase ?? options.absWorkingDir ?? process.cwd()
   return Object.fromEntries(entryPoints.map((entryPoint) => {
     const relPath = relative(baseDir, entryPoint)

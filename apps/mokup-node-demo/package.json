@@ -1,11 +1,11 @@
 {
   "name": "mokup-node-demo",
   "type": "module",
-  "version": "0.0.28",
+  "version": "0.0.29",
   "private": true,
   "homepage": "https://mokup.icebreaker.top",
   "engines": {
-    "node": "^24.11.0 || >=26.0.0"
+    "node": ">=24.15.0"
   },
   "scripts": {
     "build:manifest": "pnpm --filter mokup build && node ../../packages/mokup/dist/cli-bin.mjs build --dir mock --out dist",
@@ -16,7 +16,7 @@
   },
   "dependencies": {
     "@faker-js/faker": "catalog:",
-    "@hono/node-server": "^2.1.5",
+    "@hono/node-server": "catalog:",
     "mokup": "workspace:*"
   },
   "devDependencies": {

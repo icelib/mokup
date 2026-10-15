@@ -1,7 +1,7 @@
 {
   "name": "@mokup/runtime",
   "type": "module",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "Cross-runtime mock matching and response handling for mokup.",
   "license": "MIT",
   "homepage": "https://mokup.icebreaker.top",
@@ -39,5 +39,11 @@
   },
   "dependencies": {
     "@mokup/shared": "workspace:*"
+  },
+  "tsd": {
+    "compilerOptions": {
+      "module": "NodeNext",
+      "rootDir": "."
+    }
   }
 }

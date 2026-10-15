@@ -1,11 +1,11 @@
 {
   "name": "mokup-d1-demo",
   "type": "module",
-  "version": "0.0.14",
+  "version": "0.0.15",
   "private": true,
   "homepage": "https://mokup.icebreaker.top",
   "engines": {
-    "node": "^24.11.0 || >=26.0.0"
+    "node": ">=24.15.0"
   },
   "scripts": {
     "dev": "vite --host",
@@ -26,7 +26,7 @@
     "vue": "catalog:"
   },
   "devDependencies": {
-    "@cloudflare/vite-plugin": "^1.64.0",
+    "@cloudflare/vite-plugin": "catalog:",
     "@cloudflare/workers-types": "^5.20261014.1",
     "@tailwindcss/vite": "catalog:",
     "@vitejs/plugin-vue": "catalog:",

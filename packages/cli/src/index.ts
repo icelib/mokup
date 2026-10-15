@@ -6,7 +6,7 @@
  *
  * await buildManifest({ dir: 'mock', outDir: '.mokup' })
  */
-export { buildManifest } from './manifest'
+export { buildManifest, checkManifest } from './manifest'
 /**
  * Directory config helper for manifest builds.
  *
@@ -22,6 +22,9 @@ export { defineConfig, onAfterAll, onBeforeAll } from './manifest/define-config'
  */
 export type {
   BuildOptions,
+  CheckDiagnostic,
+  CheckOptions,
+  CheckResult,
   DiagnosticCategory,
   DiagnosticErrorMode,
   HookErrorPolicy,

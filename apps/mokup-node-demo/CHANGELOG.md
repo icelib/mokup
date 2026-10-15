@@ -1,5 +1,12 @@
 # mokup-node-demo
 
+## 0.0.29
+
+### Patch Changes
+
+- Updated dependencies:
+  - mokup@3.1.0
+
 ## 0.0.28
 
 ### Patch Changes

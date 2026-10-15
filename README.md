@@ -59,9 +59,11 @@ Upgrade details: [docs/guide/migration-v1.md](docs/guide/migration-v1.md)
 
 ## Contributing
 
-Repository development requires Node.js `^24.11.0 || >=26.0.0` and the pnpm version pinned in `package.json`.
+Repository development requires Node.js `>=24.15.0` and the pnpm version pinned in `package.json`.
 
 Issues and pull requests are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md).
+
+CI uses Node.js 24 LTS, and shared repository tooling uses repoctl. Published packages retain the runtime requirement listed above. Create release intents with `pnpm change` and preview them with `pnpm exec repo release plan`.
 
 ### Development Checks
 

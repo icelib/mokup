@@ -1,91 +1,39 @@
 import type { FetchServerOptions, FetchServerOptionsConfig } from '@mokup/server/node'
-import type { BuildOptions, DiagnosticCategory } from './manifest/types'
+import type { ScanCommandOptions } from './command-options'
+import type { BuildOptions } from './manifest/types'
 import process from 'node:process'
-import { diagnosticCategories, isDiagnosticCategory } from '@mokup/shared'
 import { createLogger } from '@mokup/shared/logger'
-import { Command, InvalidArgumentError } from 'commander'
+import { Command } from 'commander'
+import { registerCheckCommand } from './check-command'
+import {
+  collectDiagnosticCategory,
+  collectRegex,
+  collectValues,
+  diagnosticCategoryHelp,
+  toScanOptions,
+} from './command-options'
 import { buildManifest } from './manifest'
 
 const logger = createLogger()
-const diagnosticCategoryHelp = [...diagnosticCategories, 'all'].join(', ')
 
-function collectValues(value: string, previous: string[] | undefined) {
-  return [...(previous ?? []), value]
-}
-
-function collectRegex(value: string, previous: RegExp[] | undefined) {
-  const next = previous ?? []
-  next.push(new RegExp(value))
-  return next
-}
-
-function collectDiagnosticCategory(value: string, previous: string[] | undefined) {
-  if (value !== 'all' && !isDiagnosticCategory(value)) {
-    throw new InvalidArgumentError(
-      `Invalid diagnostic category "${value}". Expected one of: ${diagnosticCategoryHelp}`,
-    )
-  }
-  return [...(previous ?? []), value]
-}
-
-function resolveErrorOn(value: string[] | undefined): BuildOptions['errorOn'] {
-  if (!value || value.length === 0) {
-    return undefined
-  }
-  if (value.includes('all')) {
-    return 'all'
-  }
-  return value as DiagnosticCategory[]
-}
-
-function toBuildOptions(options: {
-  dir?: string[]
+function toBuildOptions(options: ScanCommandOptions & {
   out?: string
-  prefix?: string
-  include?: RegExp[]
-  exclude?: RegExp[]
-  ignorePrefix?: string[]
   handlers?: boolean
-  errorOn?: string[]
 }) {
   const buildOptions: BuildOptions = {
+    ...toScanOptions(options),
     handlers: options.handlers !== false,
     log: (message: string) => {
       logger.info(message)
     },
   }
-  if (options.dir && options.dir.length > 0) {
-    buildOptions.dir = options.dir
-  }
   if (options.out) {
     buildOptions.outDir = options.out
-  }
-  if (options.prefix) {
-    buildOptions.prefix = options.prefix
-  }
-  if (options.include && options.include.length > 0) {
-    buildOptions.include = options.include
-  }
-  if (options.exclude && options.exclude.length > 0) {
-    buildOptions.exclude = options.exclude
-  }
-  if (options.ignorePrefix && options.ignorePrefix.length > 0) {
-    buildOptions.ignorePrefix = options.ignorePrefix
-  }
-  const errorOn = resolveErrorOn(options.errorOn)
-  if (errorOn) {
-    buildOptions.errorOn = errorOn
   }
   return buildOptions
 }
 
-function toServeOptions(options: {
-  dir?: string[]
-  prefix?: string
-  include?: RegExp[]
-  exclude?: RegExp[]
-  ignorePrefix?: string[]
-  errorOn?: string[]
+function toServeOptions(options: ScanCommandOptions & {
   host?: string
   port?: string
   watch?: boolean
@@ -93,27 +41,9 @@ function toServeOptions(options: {
   log?: boolean
 }): { entry: FetchServerOptions, playground?: FetchServerOptionsConfig['playground'] } {
   const serveOptions: FetchServerOptions = {
+    ...toScanOptions(options),
     watch: options.watch !== false,
     log: options.log !== false,
-  }
-  if (options.dir && options.dir.length > 0) {
-    serveOptions.dir = options.dir
-  }
-  if (options.prefix) {
-    serveOptions.prefix = options.prefix
-  }
-  if (options.include && options.include.length > 0) {
-    serveOptions.include = options.include
-  }
-  if (options.exclude && options.exclude.length > 0) {
-    serveOptions.exclude = options.exclude
-  }
-  if (options.ignorePrefix && options.ignorePrefix.length > 0) {
-    serveOptions.ignorePrefix = options.ignorePrefix
-  }
-  const errorOn = resolveErrorOn(options.errorOn)
-  if (errorOn) {
-    serveOptions.errorOn = errorOn
   }
   if (options.host) {
     serveOptions.host = options.host
@@ -147,6 +77,8 @@ export function createCli() {
     .name('mokup')
     .description('Mock utilities for file-based routes.')
     .showHelpAfterError()
+
+  registerCheckCommand(program)
 
   program
     .command('build')
@@ -251,7 +183,7 @@ export function createCli() {
  * Run the mokup CLI with the provided argv.
  *
  * @param argv - CLI arguments.
- * @returns Exit code or void.
+ * @returns Resolves when the command completes.
  *
  * @example
  * import { runCli } from '@mokup/cli'

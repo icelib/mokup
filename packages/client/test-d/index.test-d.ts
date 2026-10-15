@@ -1,5 +1,3 @@
-/* eslint-disable antfu/no-import-dist */
-import type { AxiosAdapterOptions as AxiosSubpathOptions } from '../dist/axios.mjs'
 import type {
   AxiosAdapterOptions,
   AxiosInstanceLike,
@@ -10,15 +8,17 @@ import type {
   MokupFetchInit,
   RequestDescriptor,
   ResolveResult,
-} from '../dist/index.mjs'
-import { expectAssignable, expectType } from 'tsd'
-import { createFetchAdapter as createFetchAdapterFromSubpath } from '../dist/fetch.mjs'
+} from '@mokup/client'
+import type { AxiosAdapterOptions as AxiosSubpathOptions } from '@mokup/client/axios'
 import {
   applyMokupToAxios,
   createAxiosRequestInterceptor,
   createFetchAdapter,
   createMockResolver,
-} from '../dist/index.mjs'
+} from '@mokup/client'
+import { createFetchAdapter as createFetchAdapterFromSubpath } from '@mokup/client/fetch'
+import axios from 'axios'
+import { expectAssignable, expectType } from 'tsd'
 
 const resolverOptions: MockResolverOptions = {
   mockBase: 'http://localhost:3300',
@@ -83,3 +83,10 @@ const instance = {
 } satisfies AxiosInstanceLike
 
 expectType<void>(applyMokupToAxios(instance, axiosOptions))
+
+const nativeAxios = axios.create({
+  baseURL: 'https://api.example.com/api/v1',
+  allowAbsoluteUrls: false,
+})
+expectType<void>(applyMokupToAxios(nativeAxios, axiosOptions))
+expectAssignable<AxiosRequestConfig>({ url: '/users', allowAbsoluteUrls: false })

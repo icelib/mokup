@@ -11,7 +11,11 @@ import {
   createMockResolver,
 
 } from '@mokup/client'
+import { prepareFetchBody } from './fetch-body'
+import { defaultTransformResponse } from './fetch-response'
 import { isRecord, isRequestDescriptor, normalizeRequest } from './request-utils'
+
+export { MokupHttpError } from './fetch-response'
 
 export type QueryKey = readonly unknown[]
 
@@ -52,12 +56,17 @@ export interface FetchExecutorOptions {
   fetch?: typeof fetch
   resolver?: MockResolver
   resolverOptions?: MockResolverOptions
+  /** Replaces default HTTP status checking and response parsing, including for non-2xx responses. */
   transformResponse?: (response: Response) => Promise<unknown>
 }
 
 export interface AxiosExecutorOptions {
   axios: {
     request: (config: Record<string, unknown>) => Promise<unknown>
+    defaults?: {
+      baseURL?: string
+      allowAbsoluteUrls?: boolean
+    }
   }
   resolver?: MockResolver
   resolverOptions?: MockResolverOptions
@@ -71,6 +80,7 @@ export interface MokupQueryOptions {
   buildMutationRequest?: BuildMutationRequest
   executor?: RequestExecutor
   fetch?: typeof fetch
+  /** Replaces default HTTP status checking and response parsing, including for non-2xx responses. */
   transformResponse?: (response: Response) => Promise<unknown>
 }
 
@@ -127,21 +137,22 @@ function defaultBuildMutationRequest(variables: unknown): RequestDescriptor | nu
   return null
 }
 
-function defaultTransformResponse(response: Response): Promise<unknown> {
-  const contentType = response.headers.get('content-type') ?? ''
-  if (contentType.includes('application/json')) {
-    return response.json()
-  }
-  return response.text()
-}
-
 export function createFetchExecutor(options: FetchExecutorOptions = {}): RequestExecutor {
   const resolver = options.resolver ?? createMockResolver(options.resolverOptions)
+  const fetchImpl = options.fetch ?? globalThis.fetch
   const adapter = createFetchAdapter({
     resolver,
-    ...(options.fetch ? { fetch: options.fetch } : {}),
+    ...(fetchImpl
+      ? {
+          fetch: (input, init) => {
+            // Resolvers inspect the original body; encode only at the transport boundary.
+            const { body, ...rest } = init ?? {}
+            return fetchImpl(input, { ...rest, ...prepareFetchBody(body, rest.headers) })
+          },
+        }
+      : {}),
   })
-  const transform = options.transformResponse ?? defaultTransformResponse
+  const transform = options.transformResponse
 
   return async (descriptor, context) => {
     const normalized = normalizeRequest(descriptor, descriptor.meta as Record<string, unknown> | undefined)
@@ -154,7 +165,7 @@ export function createFetchExecutor(options: FetchExecutorOptions = {}): Request
       ...(normalized.meta ? { meta: normalized.meta as Record<string, unknown> } : {}),
     }
     const response = await adapter(normalized.url, init)
-    return transform(response)
+    return transform ? transform(response) : defaultTransformResponse(response, normalized.method)
   }
 }
 
@@ -170,8 +181,11 @@ export function createAxiosExecutor(options: AxiosExecutorOptions): RequestExecu
 
   return async (descriptor, context) => {
     const normalized = normalizeRequest(descriptor, descriptor.meta as Record<string, unknown> | undefined)
+    const defaults = options.axios.defaults
     const config: AxiosRequestConfig = {
       url: normalized.url,
+      ...(typeof defaults?.baseURL === 'string' ? { baseURL: defaults.baseURL } : {}),
+      ...(typeof defaults?.allowAbsoluteUrls === 'boolean' ? { allowAbsoluteUrls: defaults.allowAbsoluteUrls } : {}),
       ...(normalized.method ? { method: normalized.method } : {}),
       ...(normalized.headers ? { headers: normalized.headers as Record<string, string> } : {}),
       ...(typeof normalized.body !== 'undefined' ? { data: normalized.body } : {}),
@@ -181,7 +195,7 @@ export function createAxiosExecutor(options: AxiosExecutorOptions): RequestExecu
     }
     const resolvedConfig = await interceptor(config)
 
-    const response = await options.axios.request(resolvedConfig)
+    const response = await options.axios.request({ ...resolvedConfig })
     return select(response)
   }
 }

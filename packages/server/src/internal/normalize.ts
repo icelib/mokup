@@ -14,20 +14,20 @@ const ABSOLUTE_HTTP_URL_RE = /^https?:\/\//
 export function normalizeQuery(
   params: URLSearchParams,
 ): Record<string, string | string[]> {
-  const query: Record<string, string | string[]> = {}
+  const query = new Map<string, string | string[]>()
   for (const [key, value] of params.entries()) {
-    const current = query[key]
+    const current = query.get(key)
     if (typeof current === 'undefined') {
-      query[key] = value
+      query.set(key, value)
     }
     else if (Array.isArray(current)) {
       current.push(value)
     }
     else {
-      query[key] = [current, value]
+      query.set(key, [current, value])
     }
   }
-  return query
+  return Object.fromEntries(query)
 }
 
 /**
@@ -44,11 +44,7 @@ export function normalizeQuery(
 export function normalizeHeaders(
   headers: Headers,
 ): Record<string, string> {
-  const record: Record<string, string> = {}
-  headers.forEach((value, key) => {
-    record[key.toLowerCase()] = value
-  })
-  return record
+  return Object.fromEntries(Array.from(headers, ([key, value]) => [key.toLowerCase(), value]))
 }
 
 /**
@@ -68,14 +64,9 @@ export function normalizeNodeHeaders(
   if (!headers) {
     return {}
   }
-  const record: Record<string, string> = {}
-  for (const [key, value] of Object.entries(headers)) {
-    if (typeof value === 'undefined') {
-      continue
-    }
-    record[key.toLowerCase()] = Array.isArray(value) ? value.join(',') : String(value)
-  }
-  return record
+  return Object.fromEntries(Object.entries(headers).flatMap(([key, value]) => typeof value === 'undefined'
+    ? []
+    : [[key.toLowerCase(), Array.isArray(value) ? value.join(',') : String(value)]]))
 }
 
 /**

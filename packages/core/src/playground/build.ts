@@ -2,9 +2,11 @@ import type { RouteIgnoreInfo, RouteSkipInfo } from '../scanner'
 import type { Logger, RouteTable } from '../shared/types'
 import type { PlaygroundDistResolver } from './assets'
 import { promises as fs } from 'node:fs'
-import { join, normalize } from '@mokup/shared/pathe'
+import { relative, sep } from 'node:path'
+import { isInDirs, normalizePathForComparison } from '@mokup/shared/path-utils'
+import { join, normalize, resolve } from '@mokup/shared/pathe'
 import { resolvePlaygroundDist } from './assets'
-import { normalizePlaygroundPath, resolvePlaygroundRequestPath } from './config'
+import { normalizeBase, normalizePlaygroundPath, resolvePlaygroundRequestPath } from './config'
 import { resolveGroupRoot, resolveGroups } from './grouping'
 import { injectPlaygroundSw } from './inject'
 import {
@@ -33,10 +35,34 @@ interface PlaygroundBuildParams {
   resolvePlaygroundDist?: PlaygroundDistResolver
 }
 
-function resolvePlaygroundOutDir(outDir: string, playgroundPath: string) {
+function resolvePlaygroundOutDir(outDir: string, base: string, playgroundPath: string) {
+  const normalizedBase = normalizeBase(base)
   const normalized = normalizePlaygroundPath(playgroundPath)
-  const trimmed = normalized.replace(LEADING_SLASH_RE, '')
+  // Vite removes the public base before looking up files in its output root.
+  const outputPath = normalizedBase && (normalized === normalizedBase || normalized.startsWith(`${normalizedBase}/`))
+    ? normalized.slice(normalizedBase.length)
+    : normalized
+  const trimmed = outputPath.replace(LEADING_SLASH_RE, '')
   return trimmed ? join(outDir, normalize(trimmed)) : outDir
+}
+
+async function hasOutputSymlink(outDir: string, targetDir: string) {
+  let current = outDir
+  for (const segment of relative(outDir, targetDir).split(sep)) {
+    current = join(current, segment)
+    try {
+      if ((await fs.lstat(current)).isSymbolicLink()) {
+        return true
+      }
+    }
+    catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+        return false
+      }
+      throw error
+    }
+  }
+  return false
 }
 
 function stripSwLifecycle(html: string) {
@@ -89,9 +115,17 @@ async function removeLegacySwAsset(targetDir: string) {
 
 export async function writePlaygroundBuild(params: PlaygroundBuildParams) {
   const distDir = resolvePlaygroundDist(params.resolvePlaygroundDist)
-  const targetDir = resolvePlaygroundOutDir(params.outDir, params.playgroundPath)
-  if (targetDir === params.outDir) {
-    params.logger.error('Playground build path resolves to the Vite outDir. Aborting output.')
+  const outDir = resolve(params.outDir)
+  const targetDir = resolvePlaygroundOutDir(outDir, params.base, params.playgroundPath)
+  if (normalizePathForComparison(targetDir) === normalizePathForComparison(outDir)
+    || !isInDirs(targetDir, [outDir])) {
+    params.logger.error('Playground build path must be a strict subdirectory of the Vite outDir. Aborting output.')
+    return
+  }
+  // The configured output root may be a symlink. Its descendants must not
+  // redirect the recursive removal or copy outside that root.
+  if (await hasOutputSymlink(outDir, targetDir)) {
+    params.logger.error('Playground build path contains a symbolic link below the Vite outDir. Aborting output.')
     return
   }
 
@@ -104,7 +138,7 @@ export async function writePlaygroundBuild(params: PlaygroundBuildParams) {
   }
 
   await fs.rm(targetDir, { recursive: true, force: true })
-  await fs.mkdir(params.outDir, { recursive: true })
+  await fs.mkdir(outDir, { recursive: true })
   await fs.cp(distDir, targetDir, { recursive: true })
 
   await removeLegacySwAsset(targetDir)

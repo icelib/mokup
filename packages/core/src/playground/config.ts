@@ -29,10 +29,22 @@ function resolvePlaygroundRequestPath(base: string, playgroundPath: string) {
   if (!normalizedBase) {
     return normalizedPath
   }
-  if (normalizedPath.startsWith(normalizedBase)) {
+  if (normalizedPath === normalizedBase || normalizedPath.startsWith(`${normalizedBase}/`)) {
     return normalizedPath
   }
   return `${normalizedBase}${normalizedPath}`
+}
+
+function matchPlaygroundRequestPath(pathname: string, base: string, playgroundPath: string) {
+  const candidates = [resolvePlaygroundRequestPath(base, playgroundPath), playgroundPath]
+  for (const candidate of candidates) {
+    const mountPath = normalizePlaygroundPath(candidate)
+    const prefix = mountPath === '/' ? '' : mountPath
+    if (pathname === mountPath || pathname.startsWith(`${prefix}/`)) {
+      return { mountPath, subPath: pathname.slice(prefix.length) }
+    }
+  }
+  return null
 }
 
 /**
@@ -64,6 +76,7 @@ export function resolvePlaygroundOptions(
 
 export type { PlaygroundConfig }
 export {
+  matchPlaygroundRequestPath,
   normalizeBase,
   normalizePlaygroundPath,
   resolvePlaygroundRequestPath,

@@ -34,6 +34,12 @@ Demo:
 const response = await app.fetch(new Request('http://localhost/api/users'))
 ```
 
+Call `await app.refresh()` to reload mock files explicitly. Refreshes run one at a time, and requests received during a scan share a follow-up scan. The route table, request handler, and playground metadata switch together after the new snapshot is built successfully; a failed refresh keeps the previous snapshot available.
+
+See [Native module refresh](../advanced/hot-reload.md#native-module-refresh) for entry reload behavior and the limits on refreshing imported helpers.
+
+When file watching is active, `await app.close?.()` stops the watcher, cancels scheduled background refreshes, and waits for active scans to finish. You can still call `app.refresh()` explicitly afterward. Close the HTTP server returned by `serve()` separately when shutting down its listening socket.
+
 ## Options
 
 Use cases:
@@ -51,6 +57,12 @@ export interface ServerOptions {
 ```
 
 `onNotFound` defaults to `'next'`. Use `'response'` to return 404 instead of falling through.
+
+Adapters match the request method and path before reading its body. Mokup does not consume the body of an unmatched request: Node streams remain available to downstream middleware, and an unread Fetch `Request` keeps `bodyUsed === false`. This also applies when `onNotFound` is set to `'response'`.
+
+Custom adapters can perform the same check with [`runtime.hasRoute({ method, path })`](./runtime.md#check-a-route-before-reading-the-request-body) before parsing the body and calling `runtime.handle`.
+
+Node adapters accept path targets and absolute HTTP(S) URLs. Malformed URLs and other schemes, such as `ftp:`, `ws:`, and `file:`, produce a `400` error before routes are loaded or the body is read. Connect and Express pass this error to `next(error)`; Koa and Fastify use their framework error handlers. The development mock and Playground middleware also reject these targets. Leading double slashes remain part of the path.
 
 The Hono adapter runs anywhere Hono can run. Use the Worker entry for Cloudflare Workers.
 
@@ -103,6 +115,12 @@ const options = {
 ```
 
 Pass `options` to any adapter below. For brevity, the examples use `manifest` directly.
+
+## Response cookies
+
+Adapters preserve separate `Set-Cookie` fields from a handler's `Response`, including commas inside `Expires` dates. Node/Express responses use `appendHeader`, Koa uses `append`, and Fastify, Fetch, Hono, and Worker adapters retain the complete cookie list.
+
+Custom Node response objects that implement only `setHeader(name, string)` and custom Koa contexts that implement only `set(Record<string, string>)` keep the legacy scalar behavior: only the last cookie is emitted. Add the optional `appendHeader(name, string)` or `append(name, string)` method to preserve all cookies. Existing required method signatures remain unchanged.
 
 ## Express
 

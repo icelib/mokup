@@ -1,3 +1,5 @@
+import type { BodyReadableStream } from '@mokup/shared/stream-body'
+
 /**
  * Minimal readable stream shape used by adapters.
  *
@@ -8,9 +10,7 @@
  *   on: () => {},
  * }
  */
-export interface ReadableStreamLike {
-  on: (event: string, listener: (...args: unknown[]) => void) => void
-}
+export interface ReadableStreamLike extends BodyReadableStream {}
 
 /**
  * Minimal Node request shape used by adapters.
@@ -21,10 +21,10 @@ export interface ReadableStreamLike {
  * const req: NodeRequestLike = { method: 'GET', url: '/api/ping' }
  */
 export interface NodeRequestLike extends ReadableStreamLike {
-  method?: string
-  url?: string
-  originalUrl?: string
-  headers?: Record<string, string | string[] | undefined>
+  method?: string | undefined
+  url?: string | undefined
+  originalUrl?: string | undefined
+  headers?: Record<string, string | string[] | undefined> | undefined
   body?: unknown
 }
 
@@ -42,5 +42,7 @@ export interface NodeRequestLike extends ReadableStreamLike {
 export interface NodeResponseLike {
   statusCode?: number
   setHeader: (name: string, value: string) => void
+  /** Append a separate header field, required to preserve multiple Set-Cookie values. */
+  appendHeader?: (name: string, value: string) => void
   end: (data?: string | Uint8Array | ArrayBuffer | null) => void
 }

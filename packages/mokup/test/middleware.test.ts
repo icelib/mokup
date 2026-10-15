@@ -4,6 +4,7 @@ import { Buffer } from 'node:buffer'
 import { EventEmitter } from 'node:events'
 import { createHonoApp, createMiddleware } from '@mokup/core'
 import { parseRouteTemplate } from '@mokup/runtime'
+import { Hono, PatternRouter } from '@mokup/shared/hono'
 import { describe, expect, it, vi } from 'vitest'
 
 function createRouteTable(): RouteTable {
@@ -18,6 +19,12 @@ function createRouteTable(): RouteTable {
       handler: c => ({ id: c.req.param('id') ?? null }),
     },
   ]
+}
+
+function createMatchResult(method: string, path: string): ReturnType<Hono['router']['match']> {
+  const app = new Hono({ router: new PatternRouter() })
+  app.on(method, path, c => c.body(null))
+  return app.router.match(method, path)
 }
 
 describe('dev middleware params', () => {
@@ -108,7 +115,7 @@ describe('dev middleware params', () => {
     const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn() }
     const app = {
       router: {
-        match: () => [[{}]],
+        match: () => createMatchResult('GET', '/boom'),
       },
       fetch: async () => {
         throw new Error('boom')
@@ -245,7 +252,7 @@ describe('dev middleware params', () => {
   })
 
   it('builds requests from node streams and headers', async () => {
-    const match = vi.fn().mockReturnValue([[{}]])
+    const match = vi.fn<Hono['router']['match']>().mockReturnValue(createMatchResult('POST', '/payload'))
     const received: { body?: string, header?: string } = {}
     const app = {
       router: { match },
@@ -295,11 +302,13 @@ describe('dev middleware params', () => {
     expect(logger.info).toHaveBeenCalled()
   })
 
-  it('matches HEAD requests against GET routes', async () => {
-    const match = vi.fn().mockReturnValue([[{}]])
+  it('checks explicit HEAD routes before falling back to GET routes', async () => {
+    const match = vi.fn<Hono['router']['match']>()
+      .mockReturnValueOnce([[]])
+      .mockReturnValue(createMatchResult('GET', '/head'))
     const app = {
       router: { match },
-      fetch: async () => new Response('ok'),
+      fetch: async () => new Response(null),
     } as never
     const middleware = createMiddleware(() => app, console)
 
@@ -313,7 +322,7 @@ describe('dev middleware params', () => {
     req.emit('end')
     await promise
 
-    expect(match).toHaveBeenCalledWith('GET', '/head')
+    expect(match.mock.calls).toEqual([['HEAD', '/head'], ['GET', '/head']])
   })
 
   it('supports root and optional catchall routes', async () => {
@@ -501,7 +510,7 @@ describe('dev middleware params', () => {
   })
 
   it('normalizes missing methods and skips bodies on GET', async () => {
-    const match = vi.fn().mockReturnValue([[{}]])
+    const match = vi.fn<Hono['router']['match']>().mockReturnValue(createMatchResult('GET', '/'))
     const received: { body?: string, method?: string } = {}
     const app = {
       router: { match },
@@ -548,7 +557,7 @@ describe('dev middleware params', () => {
 
   it('handles errors after headers are sent', async () => {
     const app = {
-      router: { match: () => [[{}]] },
+      router: { match: () => createMatchResult('GET', '/boom') },
       fetch: async () => {
         throw new Error('boom')
       },
@@ -585,7 +594,7 @@ describe('dev middleware params', () => {
 
   it('skips sending responses when the stream is already ended', async () => {
     const app = {
-      router: { match: () => [[{}]] },
+      router: { match: () => createMatchResult('POST', '/payload') },
       fetch: async () => new Response('ok'),
     } as never
     const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn() }

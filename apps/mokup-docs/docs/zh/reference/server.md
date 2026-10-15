@@ -33,6 +33,12 @@ serve({ fetch: app.fetch, port: 3000 })
 const response = await app.fetch(new Request('http://localhost/api/users'))
 ```
 
+调用 `await app.refresh()` 可以手动重新加载 mock 文件。刷新会串行执行，扫描期间收到的刷新请求会合并到下一次扫描。新快照构建成功后，路由表、请求处理器和 playground 元数据会一起更新；刷新失败时仍保留上一份可用快照。
+
+入口的重新加载行为和已导入辅助模块的刷新限制见[原生模块刷新](../advanced/hot-reload.md#原生模块刷新)。
+
+开启文件监听时，`await app.close?.()` 会停止 watcher、取消尚未开始的后台刷新，并等待正在执行的扫描结束。此后仍可显式调用 `app.refresh()`。关闭监听端口时，还需要单独关闭 `serve()` 返回的 HTTP server。
+
 ## 选项
 
 使用场景：
@@ -50,6 +56,12 @@ export interface ServerOptions {
 ```
 
 `onNotFound` 默认是 `'next'`，设为 `'response'` 会直接返回 404。
+
+适配器会先匹配请求方法与路径，命中后才读取请求体。Mokup 不会消耗未匹配请求的请求体：下游中间件仍可读取 Node 请求流，原本未读取的 Fetch `Request` 也会保持 `bodyUsed === false`。设置 `onNotFound: 'response'` 时同样如此。
+
+自定义适配器可以先调用 [`runtime.hasRoute({ method, path })`](./runtime.md#读取请求体前查询路由)，命中后再解析请求体并调用 `runtime.handle`。
+
+Node 适配器接受路径形式的请求目标和完整的 HTTP(S) URL。格式错误的 URL，以及 `ftp:`、`ws:`、`file:` 等其他协议，会在加载路由或读取请求体前产生 `400` 错误。Connect 和 Express 将错误传给 `next(error)`；Koa 和 Fastify 交由框架的错误处理器处理。开发环境的 mock 与 Playground 中间件也会拒绝这些请求目标。开头的双斜杠仍作为路径的一部分。
 
 Hono 适配器可在 Hono 支持的运行时中使用，Cloudflare Worker 请使用专用入口。
 
@@ -102,6 +114,12 @@ const options = {
 ```
 
 上面的 `options` 可直接传给任意适配器，下方示例为简洁起见直接传 `manifest`。
+
+## 响应 Cookie
+
+适配器会保留 handler 返回的 `Response` 中每一条独立的 `Set-Cookie`，包括 `Expires` 日期里的逗号。Node/Express 响应使用 `appendHeader`，Koa 使用 `append`；Fastify、Fetch、Hono 和 Worker 适配器也会保留完整列表。
+
+自定义 Node 响应对象若只实现 `setHeader(name, string)`，或自定义 Koa context 只实现 `set(Record<string, string>)`，则保持原有标量行为，只输出最后一条 Cookie。要保留全部 Cookie，请补充可选的 `appendHeader(name, string)` 或 `append(name, string)` 方法；已有必选方法的签名无需修改。
 
 ## Express
 

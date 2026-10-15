@@ -1,6 +1,6 @@
-import { icebreaker } from '@icebreakers/eslint-config'
+import { defineEslintConfig } from 'repoctl/tooling'
 
-export default icebreaker(
+export default await defineEslintConfig(
   {
     vue: true,
     ignores: ['**/fixtures/**', '**/.wrangler/**', '**/.tmp/**'],

@@ -46,6 +46,10 @@ mock/[action]/[id].get.ts -> GET /:action/:id
 
 Access via `c.req.param('id')`:
 
+Parameter names may contain letters, digits, underscores, and hyphens, including names such as `[123]` and `[user-id]`. Use the original name when calling `c.req.param()`. Duplicate names produce a warning; the last occurrence supplies the value.
+
+Static segments are literal: `:fixed`, `*`, `ab{2}`, and `a|b` do not introduce parameters, wildcards, or regular expressions. File names must also be valid on your operating system.
+
 ```ts
 export default {
   handler: c => ({ id: c.req.param('id') }),
@@ -78,6 +82,8 @@ export default defineHandler(c => ({
 mock/docs/[...slug].get.ts   -> /docs/* (at least 1 segment)
 mock/docs/[[...slug]].get.ts -> /docs (optional)
 ```
+
+`c.req.param('slug')` returns a slash-separated string for a catch-all, or `undefined` when an optional catch-all is absent. An absent optional catch-all also clears an earlier parameter with the same name.
 
 ## JSON and JSONC routes
 

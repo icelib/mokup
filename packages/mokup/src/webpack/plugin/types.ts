@@ -54,10 +54,12 @@ interface WebpackCompiler {
     }
   }
   hooks: {
+    beforeRun?: { tap: (name: string, handler: () => void) => void }
     beforeCompile: { tapPromise: (name: string, handler: () => Promise<void>) => void }
     thisCompilation: { tap: (name: string, handler: (compilation: WebpackCompilation) => void) => void }
     watchRun: { tap: (name: string, handler: (compiler: WebpackCompiler) => void) => void }
     watchClose: { tap: (name: string, handler: () => void) => void }
+    shutdown?: { tapPromise: (name: string, handler: () => Promise<void>) => void }
   }
   watching?: { invalidate: () => void }
   webpack: {

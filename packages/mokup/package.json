@@ -1,7 +1,7 @@
 {
   "name": "mokup",
   "type": "module",
-  "version": "3.0.0",
+  "version": "3.1.0",
   "description": "Mock utilities and Vite plugin for mokup.",
   "license": "MIT",
   "homepage": "https://mokup.icebreaker.top",
@@ -126,18 +126,8 @@
   },
   "tsd": {
     "compilerOptions": {
-      "baseUrl": ".",
-      "paths": {
-        "mokup": [
-          "./dist/index.d.ts"
-        ],
-        "mokup/*": [
-          "./dist/*"
-        ],
-        "vite": [
-          "./node_modules/vite/dist/node/index.d.ts"
-        ]
-      }
+      "module": "NodeNext",
+      "rootDir": "."
     }
   },
   "peerDependencies": {
@@ -164,5 +154,8 @@
     "@mokup/server": "workspace:*",
     "@mokup/shared": "workspace:*",
     "picocolors": "^1.1.1"
+  },
+  "devDependencies": {
+    "vite": "catalog:"
   }
 }

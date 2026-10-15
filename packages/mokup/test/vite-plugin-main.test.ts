@@ -82,7 +82,8 @@ vi.mock('../src/vite/plugin/options', () => ({
   normalizeMokupOptions: mocks.normalizeMokupOptions,
   normalizeOptions: mocks.normalizeOptions,
 }))
-vi.mock('../src/vite/plugin/paths', () => ({
+vi.mock('../src/vite/plugin/paths', async importOriginal => ({
+  ...await importOriginal<typeof import('../src/vite/plugin/paths')>(),
   resolveSwImportPath: mocks.resolveSwImportPath,
 }))
 vi.mock('../src/vite/plugin/refresh', () => ({
@@ -183,7 +184,7 @@ describe('mokup vite plugin', () => {
     expect(serveHtml).toEqual({
       html: '<html></html>',
       tags: [
-        { tag: 'script', attrs: { type: 'module' }, children: 'lifecycle-script', injectTo: 'head' },
+        { tag: 'script', attrs: { type: 'module', src: '/base/@id/__x00__virtual:mokup-sw-lifecycle' }, injectTo: 'head' },
       ],
     })
   })

@@ -46,6 +46,10 @@ mock/[action]/[id].get.ts -> GET /:action/:id
 
 在处理函数中可以通过 `c.req.param('id')` 访问：
 
+参数名可以包含字母、数字、下划线和连字符，支持 `[123]`、`[user-id]` 等名称。调用 `c.req.param()` 时使用原始参数名。同名参数会产生警告，并使用最后一次出现的值。
+
+静态段按字面匹配：`:fixed`、`*`、`ab{2}` 和 `a|b` 不会被解释为参数、通配符或正则表达式。文件名还需符合当前操作系统的限制。
+
 ```ts
 export default {
   handler: c => ({ id: c.req.param('id') }),
@@ -80,6 +84,8 @@ mock/docs/[[...slug]].get.ts -> /docs (可选)
 ```
 
 这些规则与前端路由常见语法一致，适合做文档类 API 模拟。
+
+`c.req.param('slug')` 返回以 `/` 连接的字符串；可选 Catch-all 缺席时返回 `undefined`，同时覆盖前面出现的同名参数。
 
 ## JSON 与 JSONC 路由
 

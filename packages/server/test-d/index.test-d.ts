@@ -1,4 +1,3 @@
-/* eslint-disable antfu/no-import-dist */
 import type {
   DiagnosticCategory,
   DiagnosticErrorMode,
@@ -9,16 +8,15 @@ import type {
   ServerOptions,
   WorkerBundle,
   WorkerInput,
-} from '../dist/index.mjs'
-import type { FetchServer, FetchServerOptionsInput, NodeWorkerInput } from '../dist/node.mjs'
-import { expectAssignable, expectType } from 'tsd'
+} from '@mokup/server'
+import type { FetchServer, FetchServerOptionsInput, NodeWorkerInput } from '@mokup/server/node'
 import {
   createFetchHandler,
   createMokupWorker,
   defineConfig,
   onAfterAll,
   onBeforeAll,
-} from '../dist/index.mjs'
+} from '@mokup/server'
 import {
   createConnectMiddleware,
   createExpressMiddleware,
@@ -26,7 +24,8 @@ import {
   createHonoMiddleware,
   createKoaMiddleware,
   createMokupWorker as createNodeWorker,
-} from '../dist/node.mjs'
+} from '@mokup/server/node'
+import { expectAssignable, expectType } from 'tsd'
 
 const manifest: Manifest = { version: 1, routes: [] }
 const diagnosticCategory: DiagnosticCategory = 'missing-handler'

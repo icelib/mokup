@@ -1,6 +1,8 @@
-/* eslint-disable antfu/no-import-dist */
 import type {
   BuildOptions,
+  CheckDiagnostic,
+  CheckOptions,
+  CheckResult,
   DiagnosticCategory,
   DiagnosticErrorMode,
   HookErrorPolicy,
@@ -8,16 +10,17 @@ import type {
   MiddlewareRegistry,
   RouteDirectoryConfig,
   RouteRule,
-} from '../dist/index.mjs'
-import { expectAssignable, expectType } from 'tsd'
+} from '@mokup/cli'
 import {
   buildManifest,
+  checkManifest,
   createCli,
   defineConfig,
   onAfterAll,
   onBeforeAll,
   runCli,
-} from '../dist/index.mjs'
+} from '@mokup/cli'
+import { expectAssignable, expectError, expectType } from 'tsd'
 
 const options: BuildOptions = {
   dir: ['mock'],
@@ -68,3 +71,13 @@ expectType<ReturnType<typeof buildManifest>>(buildResult)
 
 expectType<ReturnType<typeof createCli>>(createCli())
 expectType<Promise<void>>(runCli(['node', 'mokup']))
+
+const checkOptions: CheckOptions = { dir: ['mock'], errorOn: ['duplicate-route'] }
+expectType<Promise<CheckResult>>(checkManifest(checkOptions))
+expectError(checkManifest({ outDir: '.mokup' }))
+expectError(checkManifest({ handlers: false }))
+const checkResult = await checkManifest({ errorOn: [] })
+expectType<1>(checkResult.schemaVersion)
+expectType<boolean>(checkResult.valid)
+expectType<number>(checkResult.routeCount)
+expectType<CheckDiagnostic[]>(checkResult.diagnostics)

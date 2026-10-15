@@ -24,6 +24,20 @@ const result = await runtime.handle({
 })
 ```
 
+### Check a route before reading the request body
+
+`runtime.hasRoute({ method, path })` returns a `Promise<boolean>` using the same route matching rules as `runtime.handle`. Explicit `HEAD` routes take priority, with `GET` used as a fallback when no `HEAD` route matches.
+
+The query does not execute handlers or middleware, import handler modules, apply delays, or read a request body. It loads and caches the manifest as needed, so the first call may invoke the `manifest` loader supplied in `RuntimeOptions`.
+
+```ts
+const matched = await runtime.hasRoute({ method: 'POST', path: '/users' })
+```
+
+Custom adapters can use this query before parsing a body, leaving unmatched requests available to downstream handlers. For matched requests, continue calling `runtime.handle` with the complete normalized request shown above. `handle` still returns the mock result or `null` when no route matches.
+
+For matched requests, adapters can provide `rawBodyBytes?: Uint8Array` to preserve binary payloads. The runtime prefers these bytes, including an empty array, over `rawBody?: string` and then the parsed `body`. It copies the supplied byte view, including Buffer slices and SharedArrayBuffer views, before constructing the Fetch request. `GET` and `HEAD` requests remain bodyless.
+
 ## Direct usage with CLI bundle
 
 Use the CLI bundle to load a manifest and handler module map in your runtime:

@@ -1,7 +1,7 @@
 {
   "name": "@mokup/client",
   "type": "module",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Client-side request switching and adapters for mokup.",
   "license": "MIT",
   "homepage": "https://mokup.icebreaker.top",
@@ -56,5 +56,11 @@
     "test": "vitest",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test:types": "tsd"
+  },
+  "tsd": {
+    "compilerOptions": {
+      "module": "NodeNext",
+      "rootDir": "."
+    }
   }
 }

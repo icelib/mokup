@@ -6,7 +6,6 @@
           "version": "3.0.3",
           "paths": [
             "apps__mokup-web-demo>vue-router>unplugin>webpack>webpack-cli>webpack-dev-server>http-proxy-middleware>micromatch>braces",
-            "packages__mokup>html-webpack-plugin>webpack>webpack-cli>webpack-dev-server>http-proxy-middleware>micromatch>braces",
             "packages__mokup>webpack>webpack-cli>webpack-dev-server>http-proxy-middleware>micromatch>braces"
           ],
           "dev": false,
@@ -34,9 +33,9 @@
       "high": 1,
       "critical": 0
     },
-    "dependencies": 288,
+    "dependencies": 286,
     "devDependencies": 0,
-    "optionalDependencies": 287,
-    "totalDependencies": 575
+    "optionalDependencies": 275,
+    "totalDependencies": 561
   }
 }

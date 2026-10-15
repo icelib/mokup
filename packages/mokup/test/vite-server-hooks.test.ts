@@ -75,7 +75,6 @@ describe('vite server hooks', () => {
       playgroundConfig: { path: '/__mokup', enabled: true, build: false },
       playgroundMiddleware: (_req, _res, next) => next(),
       swConfig,
-      hasSwRoutes: () => true,
       enableViteMiddleware: false,
       refreshRoutes: async () => {},
       resolveAllDirs: () => ['/root/mock'],
@@ -123,7 +122,6 @@ describe('vite server hooks', () => {
       playgroundConfig: { path: '/__mokup', enabled: false, build: false },
       playgroundMiddleware: (_req, _res, next) => next(),
       swConfig,
-      hasSwRoutes: () => true,
       enableViteMiddleware: false,
       refreshRoutes: async () => {},
       resolveAllDirs: () => ['/root/mock'],
@@ -136,7 +134,7 @@ describe('vite server hooks', () => {
     expect(next).toHaveBeenCalled()
   })
 
-  it('configures preview server middleware', async () => {
+  it('passes preview SW requests to downstream static middleware', async () => {
     const server = createServerStub()
     const closeListeners: Array<() => void> = []
     server.httpServer = { once: (_event: string, handler: () => void) => closeListeners.push(handler) } as any
@@ -165,16 +163,20 @@ describe('vite server hooks', () => {
       playgroundConfig: { path: '/__mokup', enabled: true, build: false },
       playgroundMiddleware: (_req, _res, next) => next(),
       swConfig,
-      hasSwRoutes: () => true,
       enableViteMiddleware: false,
       refreshRoutes: async () => {},
       resolveAllDirs: () => ['/root/mock'],
       watchEnabled: false,
     })
 
-    const swMiddleware = await findSwMiddleware(server.middlewares.stack)
     const res = { statusCode: 0, setHeader: vi.fn(), end: vi.fn() }
-    await swMiddleware?.({ url: '/mokup-sw.js' }, res, vi.fn())
-    expect(res.statusCode).toBe(200)
+    for (const entry of server.middlewares.stack) {
+      const next = vi.fn()
+      await entry.handle({ url: '/mokup-sw.js' }, res, next)
+      expect(next).toHaveBeenCalledExactlyOnceWith()
+    }
+    expect(res.statusCode).toBe(0)
+    expect(res.setHeader).not.toHaveBeenCalled()
+    expect(res.end).not.toHaveBeenCalled()
   })
 })

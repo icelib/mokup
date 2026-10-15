@@ -1,21 +1,7 @@
 import type { AuthType, BodyType, RawBodyType } from '../types'
-
-const SAFE_SHELL_VALUE_PATTERN = /^[\w./:@=&?%-]+$/
-
-function resolveContentType(rawType: RawBodyType): string {
-  switch (rawType) {
-    case 'json': return 'application/json'
-    case 'javascript': return 'application/javascript'
-    case 'html': return 'text/html'
-    case 'xml': return 'text/xml'
-    default: return 'text/plain'
-  }
-}
+import { prepareCopyRequest } from './copy-request'
 
 function shellEscape(value: string) {
-  if (SAFE_SHELL_VALUE_PATTERN.test(value)) {
-    return value
-  }
   return `'${value.replace(/'/g, `'\\''`)}'`
 }
 
@@ -38,60 +24,27 @@ interface BuildCurlOptions {
 }
 
 function buildCurl(options: BuildCurlOptions): string {
-  const parts: string[] = ['curl']
-  const method = options.method.toUpperCase()
+  const { method, url, headers, body } = prepareCopyRequest(options)
+  const parts: string[] = ['curl', '--globoff']
 
-  if (method !== 'GET') {
-    parts.push(`-X ${method}`)
+  if (method === 'HEAD') {
+    parts.push('--head')
   }
-
-  const url = new URL(options.url, 'http://localhost')
-  if (options.authType === 'apikey' && options.authKeyLocation === 'query' && options.authKeyName && options.authKeyValue) {
-    url.searchParams.set(options.authKeyName, options.authKeyValue)
+  else if (method !== 'GET') {
+    parts.push(`-X ${shellEscape(method)}`)
   }
-  parts.push(shellEscape(url.toString()))
-
-  const headers: Record<string, string> = { ...options.headers }
-
-  if (options.authType === 'bearer' && options.authToken) {
-    headers['Authorization'] = `Bearer ${options.authToken}`
-  }
-  else if (options.authType === 'basic' && (options.authUsername || options.authPassword)) {
-    headers['Authorization'] = `Basic ${btoa(`${options.authUsername}:${options.authPassword}`)}`
-  }
-  else if (options.authType === 'apikey' && options.authKeyLocation === 'header' && options.authKeyName && options.authKeyValue) {
-    headers[options.authKeyName] = options.authKeyValue
-  }
-  else if (options.authType === 'custom' && options.authCustomName) {
-    headers[options.authCustomName] = options.authCustomValue
+  parts.push(shellEscape(url))
+  for (const [key, value] of headers) {
+    const header = /^[\t ]*$/.test(value) ? `${key};` : `${key}: ${value}`
+    parts.push(`-H ${shellEscape(header)}`)
   }
 
-  for (const [key, value] of Object.entries(headers)) {
-    parts.push(`-H ${shellEscape(`${key}: ${value}`)}`)
+  if (body?.type === 'text') {
+    parts.push(`--data-raw ${shellEscape(body.value)}`)
   }
-
-  if (method !== 'GET' && method !== 'HEAD' && options.bodyType !== 'none') {
-    const trimmed = options.bodyText.trim()
-    if (options.bodyType === 'raw' && trimmed) {
-      if (!headers['Content-Type']) {
-        const ct = resolveContentType(options.rawType)
-        parts.push(`-H ${shellEscape(`Content-Type: ${ct}`)}`)
-      }
-      parts.push(`-d ${shellEscape(trimmed)}`)
-    }
-    else if (options.bodyType === 'form-urlencoded' && trimmed) {
-      if (!headers['Content-Type']) {
-        parts.push(`-H ${shellEscape('Content-Type: application/x-www-form-urlencoded')}`)
-      }
-      parts.push(`--data-urlencode ${shellEscape(trimmed)}`)
-    }
-    else if (options.bodyType === 'form-data' && trimmed) {
-      for (const line of trimmed.split('\n')) {
-        const eq = line.indexOf('=')
-        if (eq > 0) {
-          parts.push(`-F ${shellEscape(line.trim())}`)
-        }
-      }
+  else if (body?.type === 'form-data') {
+    for (const [key, value] of body.entries) {
+      parts.push(`--form-string ${shellEscape(`${key}=${value}`)}`)
     }
   }
 

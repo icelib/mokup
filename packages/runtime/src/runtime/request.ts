@@ -18,6 +18,9 @@ function appendQueryParams(url: URL, query: RuntimeRequest['query']) {
 }
 
 function resolveRequestBody(req: RuntimeRequest, contentType: string) {
+  if (typeof req.rawBodyBytes !== 'undefined') {
+    return new Uint8Array(req.rawBodyBytes).buffer
+  }
   if (typeof req.rawBody !== 'undefined') {
     return req.rawBody
   }

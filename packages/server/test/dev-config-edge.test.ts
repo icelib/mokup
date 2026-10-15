@@ -1,6 +1,7 @@
 import { promises as fs } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
+import { toPosix } from '@mokup/shared/path-utils'
 import { describe, expect, it, vi } from 'vitest'
 import { resolveDirectoryConfig } from '../src/dev/config'
 
@@ -56,7 +57,7 @@ describe('dev config edge cases', () => {
       const cachedPath = path.join(mockDir, 'index.config.txt')
       await fs.writeFile(cachedPath, 'invalid', 'utf8')
 
-      const fileCache = new Map([[mockDir, cachedPath]])
+      const fileCache = new Map([[toPosix(mockDir), cachedPath]])
       const config = await resolveDirectoryConfig({
         file: routeFile,
         rootDir: mockDir,
@@ -66,7 +67,7 @@ describe('dev config edge cases', () => {
       })
 
       expect(config.headers).toBeUndefined()
-      expect(logger.warn).toHaveBeenCalled()
+      expect(logger.warn).toHaveBeenCalledWith(`Invalid config in ${cachedPath}`)
     }
     finally {
       await fs.rm(root, { recursive: true, force: true })

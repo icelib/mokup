@@ -225,7 +225,8 @@ describe('resolveDirectoryConfig', () => {
       const routeFile = path.join(mockDir, 'route.get.json')
       await fs.writeFile(routeFile, '{}', 'utf8')
       const fileCache = new Map<string, string | null>()
-      fileCache.set(mockDir, path.join(mockDir, 'index.config.txt'))
+      const cachedPath = path.join(mockDir, 'index.config.txt')
+      fileCache.set(toPosix(mockDir), cachedPath)
 
       await resolveDirectoryConfig({
         file: routeFile,
@@ -235,7 +236,7 @@ describe('resolveDirectoryConfig', () => {
         fileCache,
       })
 
-      expect(logs.some(message => message.includes('Invalid config'))).toBe(true)
+      expect(logs).toContain(`Invalid config in ${cachedPath}`)
     }
     finally {
       await cleanupTempRoot(root)

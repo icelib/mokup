@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { createAdaptorServer } from '@hono/node-server'
@@ -65,7 +65,7 @@ function readWebSocketMessage(socket: WebSocket) {
 }
 
 describe('node server', () => {
-  it('serves playground metrics over websocket', async () => {
+  it.each(['/__mokup', '/'])('serves playground metrics over websocket at %s', async (playgroundPath) => {
     const root = await mkdtemp(join(tmpdir(), 'mokup-node-ws-'))
     const mockDir = join(root, 'mock')
     await mkdir(mockDir, { recursive: true })
@@ -73,7 +73,7 @@ describe('node server', () => {
 
     const fetchServer = await createFetchServer({
       entries: { dir: mockDir, log: false, watch: false },
-      playground: { enabled: true },
+      playground: { enabled: true, path: playgroundPath },
     })
     expect(fetchServer.websocket).toBeDefined()
     const nodeServer = createAdaptorServer({
@@ -88,7 +88,8 @@ describe('node server', () => {
         return
       }
       const { host, port } = listening
-      socket = new WebSocket(`ws://${host}:${port}/__mokup/ws`)
+      const routePrefix = playgroundPath === '/' ? '' : playgroundPath
+      socket = new WebSocket(`ws://${host}:${port}${routePrefix}/ws`)
 
       await expect(readWebSocketMessage(socket)).resolves.toEqual({
         type: 'snapshot',
@@ -97,7 +98,9 @@ describe('node server', () => {
       })
 
       const increment = readWebSocketMessage(socket)
-      await fetch(`http://${host}:${port}/ping`)
+      const response = await fetch(`http://${host}:${port}/ping`)
+      expect(response.status).toBe(200)
+      await expect(response.json()).resolves.toEqual({ ok: true })
       await expect(increment).resolves.toEqual({
         type: 'increment',
         routeKey: 'GET /ping',
@@ -108,10 +111,11 @@ describe('node server', () => {
       socket?.terminate()
       await closeServer(nodeServer)
       await fetchServer.close?.()
+      await rm(root, { recursive: true, force: true })
     }
   })
 
-  it('serves mock routes and playground routes', async () => {
+  it.each(['/__mokup', '/'])('serves mock routes and playground routes at %s', async (playgroundPath) => {
     const root = await mkdtemp(join(tmpdir(), 'mokup-node-'))
     const mockDir = join(root, 'mock')
     await mkdir(mockDir, { recursive: true })
@@ -127,6 +131,7 @@ describe('node server', () => {
         log: false,
         watch: false,
       },
+      playground: { path: playgroundPath },
     })
     const nodeServer = createAdaptorServer({ fetch: fetchServer.fetch })
 
@@ -142,7 +147,8 @@ describe('node server', () => {
       expect(response.status).toBe(200)
       await expect(response.json()).resolves.toEqual({ id: 1 })
 
-      const routesResponse = await fetch(`${base}/__mokup/routes`)
+      const routePrefix = playgroundPath === '/' ? '' : playgroundPath
+      const routesResponse = await fetch(`${base}${routePrefix}/routes`)
       expect(routesResponse.status).toBe(200)
       const payload = await routesResponse.json()
       expect(payload.count).toBe(1)
@@ -153,6 +159,7 @@ describe('node server', () => {
       if (fetchServer.close) {
         await fetchServer.close()
       }
+      await rm(root, { recursive: true, force: true })
     }
   })
 

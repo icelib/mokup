@@ -2,60 +2,14 @@ import type { Context } from '@mokup/shared/hono'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 
 import type { Logger, ResolvedRoute, RouteTable } from './shared/types'
-import { Buffer } from 'node:buffer'
+import { validateHeaderName, validateHeaderValue } from 'node:http'
+import { isHeadFallbackHandler, prioritizeHeadRoutes } from '@mokup/shared/head-routes'
 import { Hono, PatternRouter } from '@mokup/shared/hono'
+import { registerTokenRoute } from '@mokup/shared/hono-routes'
+import { applyContextResponseOverrides } from '@mokup/shared/response-overrides'
+import { readStreamBody } from '@mokup/shared/stream-body'
+import { parseRequestUrl, sendInvalidRequestUrl } from './shared/request-url'
 import { delay, normalizeMethod } from './shared/utils'
-
-function toHonoPath(route: ResolvedRoute) {
-  if (!route.tokens || route.tokens.length === 0) {
-    return '/'
-  }
-  const segments = route.tokens.map((token) => {
-    if (token.type === 'static') {
-      return token.value
-    }
-    if (token.type === 'param') {
-      return `:${token.name}`
-    }
-    if (token.type === 'catchall') {
-      return `:${token.name}{.+}`
-    }
-    return `:${token.name}{.+}?`
-  })
-  return `/${segments.join('/')}`
-}
-
-function isValidStatus(status: unknown): status is number {
-  return typeof status === 'number'
-    && Number.isFinite(status)
-    && status >= 200
-    && status <= 599
-}
-
-function resolveStatus(routeStatus: number | undefined, responseStatus: number) {
-  if (isValidStatus(routeStatus)) {
-    return routeStatus
-  }
-  if (isValidStatus(responseStatus)) {
-    return responseStatus
-  }
-  return 200
-}
-
-function applyRouteOverrides(response: Response, route: ResolvedRoute) {
-  const headers = new Headers(response.headers)
-  const hasHeaders = !!route.headers && Object.keys(route.headers).length > 0
-  if (route.headers) {
-    for (const [key, value] of Object.entries(route.headers)) {
-      headers.set(key, value)
-    }
-  }
-  const status = resolveStatus(route.status, response.status)
-  if (status === response.status && !hasHeaders) {
-    return response
-  }
-  return new Response(response.body, { status, headers })
-}
 
 function resolveResponse(value: unknown, fallback: Response) {
   if (value instanceof Response) {
@@ -113,9 +67,7 @@ function createFinalizeMiddleware(route: ResolvedRoute) {
     if (route.delay && route.delay > 0) {
       await delay(route.delay)
     }
-    const overridden = applyRouteOverrides(resolved, route)
-    c.res = overridden
-    return overridden
+    return applyContextResponseOverrides(c, resolved, route)
   }
 }
 
@@ -161,45 +113,17 @@ function splitRouteMiddlewares(route: ResolvedRoute) {
 export function createHonoApp(routes: RouteTable): Hono {
   const app = new Hono({ router: new PatternRouter(), strict: false })
 
-  for (const route of routes) {
+  for (const route of prioritizeHeadRoutes(routes)) {
     const { before, normal, after } = splitRouteMiddlewares(route)
-    app.on(
+    registerTokenRoute(
+      app,
       route.method,
-      toHonoPath(route),
-      createFinalizeMiddleware(route),
-      ...before,
-      ...normal,
-      ...after,
-      createRouteHandler(route),
+      route.tokens ?? [],
+      [createFinalizeMiddleware(route), ...before, ...normal, ...after, createRouteHandler(route)],
     )
   }
 
   return app
-}
-
-async function readRawBody(req: IncomingMessage) {
-  return await new Promise<Uint8Array | null>((resolve, reject) => {
-    const chunks: Uint8Array[] = []
-    req.on('data', (chunk) => {
-      if (typeof chunk === 'string') {
-        chunks.push(Buffer.from(chunk))
-        return
-      }
-      if (chunk instanceof Uint8Array) {
-        chunks.push(chunk)
-        return
-      }
-      chunks.push(Buffer.from(String(chunk)))
-    })
-    req.on('end', () => {
-      if (chunks.length === 0) {
-        resolve(null)
-        return
-      }
-      resolve(Buffer.concat(chunks))
-    })
-    req.on('error', reject)
-  })
 }
 
 function buildHeaders(headers: IncomingMessage['headers']) {
@@ -218,12 +142,11 @@ function buildHeaders(headers: IncomingMessage['headers']) {
   return result
 }
 
-async function toRequest(req: IncomingMessage) {
-  const url = new URL(req.url ?? '/', 'http://mokup.local')
+async function toRequest(req: IncomingMessage, url: URL) {
   const method = req.method ?? 'GET'
   const headers = buildHeaders(req.headers)
   const init: RequestInit = { method, headers }
-  const rawBody = await readRawBody(req)
+  const rawBody = await readStreamBody(req)
   if (rawBody && method !== 'GET' && method !== 'HEAD') {
     init.body = rawBody as BodyInit
   }
@@ -231,22 +154,36 @@ async function toRequest(req: IncomingMessage) {
 }
 
 async function sendResponse(res: ServerResponse, response: Response) {
+  const buffer = response.body ? new Uint8Array(await response.arrayBuffer()) : null
+  const cookies = response.headers.getSetCookie()
+  const headers = Array.from(response.headers).filter(([key]) => key !== 'set-cookie')
+  for (const [key, value] of headers) {
+    validateHeaderName(key)
+    validateHeaderValue(key, value)
+  }
+  for (const cookie of cookies) {
+    validateHeaderValue('set-cookie', cookie)
+  }
   res.statusCode = response.status
-  response.headers.forEach((value, key) => {
+  for (const [key, value] of headers) {
     res.setHeader(key, value)
-  })
-  if (!response.body) {
+  }
+  if (cookies.length > 0) {
+    res.setHeader('set-cookie', cookies)
+  }
+  if (!buffer) {
     res.end()
     return
   }
-  const buffer = new Uint8Array(await response.arrayBuffer())
   res.end(buffer)
 }
 
 function hasMatch(app: Hono, method: string, pathname: string) {
-  const matchMethod = method === 'HEAD' ? 'GET' : method
-  const match = app.router.match(matchMethod, pathname)
-  return !!match && match[0].length > 0
+  const methods = method === 'HEAD' ? ['HEAD', 'GET'] : [method]
+  return methods.some((matchMethod) => {
+    const match = app.router.match(matchMethod, pathname)
+    return match[0].some(([[handler]]) => !isHeadFallbackHandler(handler))
+  })
 }
 
 /**
@@ -276,7 +213,11 @@ export function createMiddleware(
     }
 
     const url = req.url ?? '/'
-    const parsedUrl = new URL(url, 'http://mokup.local')
+    const parsedUrl = parseRequestUrl(url)
+    if (!parsedUrl) {
+      sendInvalidRequestUrl(res)
+      return
+    }
     const pathname = parsedUrl.pathname
     const method = normalizeMethod(req.method) ?? 'GET'
 
@@ -286,7 +227,7 @@ export function createMiddleware(
 
     const startedAt = Date.now()
     try {
-      const response = await app.fetch(await toRequest(req))
+      const response = await app.fetch(await toRequest(req, parsedUrl))
       if (res.writableEnded) {
         return
       }

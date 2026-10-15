@@ -1,6 +1,7 @@
 import type { MockResolver, MockResolverOptions, RequestDescriptor } from '../core'
 import { createMockResolver } from '../core'
 import { mergeHeaders, normalizeHeaders } from '../utils'
+import { toRewrittenRequestInit } from './fetch-request'
 
 export type MokupFetchInit = RequestInit & {
   mock?: boolean
@@ -13,23 +14,6 @@ export interface FetchAdapterOptions {
   resolverOptions?: MockResolverOptions
 }
 
-function requestToInit(request: Request, headers: Record<string, string>): RequestInit {
-  return {
-    method: request.method,
-    headers,
-    body: request.body,
-    cache: request.cache,
-    credentials: request.credentials,
-    integrity: request.integrity,
-    keepalive: request.keepalive,
-    mode: request.mode,
-    redirect: request.redirect,
-    referrer: request.referrer,
-    referrerPolicy: request.referrerPolicy,
-    signal: request.signal,
-  }
-}
-
 export function createFetchAdapter(options: FetchAdapterOptions = {}) {
   const resolver = options.resolver ?? createMockResolver(options.resolverOptions)
   const fetchImpl = options.fetch ?? (typeof fetch !== 'undefined' ? fetch : undefined)
@@ -39,22 +23,21 @@ export function createFetchAdapter(options: FetchAdapterOptions = {}) {
   }
 
   return async function mokupFetch(input: RequestInfo | URL, init?: MokupFetchInit) {
+    const { mock: _mock, meta: _meta, ...cleanInit } = init ?? {}
     const hasRequest = typeof Request !== 'undefined' && input instanceof Request
-    const sourceRequest = hasRequest ? new Request(input, init) : undefined
+    const sourceRequest = hasRequest ? new Request(input, cleanInit) : undefined
     const url = input instanceof URL ? input.toString() : (hasRequest ? sourceRequest!.url : String(input))
-    const requestHeaders = sourceRequest ? normalizeHeaders(sourceRequest.headers) : {}
-    const initHeaders = normalizeHeaders(init?.headers)
-    const mergedHeaders = mergeHeaders(requestHeaders, initHeaders)
+    const headers = normalizeHeaders(sourceRequest?.headers ?? cleanInit.headers)
     const descriptor: RequestDescriptor = {
       url,
-      headers: mergedHeaders,
+      headers,
     }
     const method = sourceRequest?.method ?? init?.method
     if (method) {
       descriptor.method = method
     }
-    if (typeof init?.body !== 'undefined' || sourceRequest?.body) {
-      descriptor.body = init?.body ?? sourceRequest?.body
+    if (sourceRequest?.body || typeof cleanInit.body !== 'undefined') {
+      descriptor.body = sourceRequest ? sourceRequest.body : cleanInit.body
     }
     if (typeof init?.mock === 'boolean') {
       descriptor.mock = init.mock
@@ -65,14 +48,12 @@ export function createFetchAdapter(options: FetchAdapterOptions = {}) {
 
     const resolved = resolver.resolve(descriptor)
     const nextHeaders = mergeHeaders(descriptor.headers, resolved.headers)
-    const { mock: _mock, meta: _meta, ...cleanInit } = init ?? {}
 
     if (sourceRequest) {
-      return fetchImpl(resolved.url, {
-        ...requestToInit(sourceRequest, nextHeaders),
-        ...cleanInit,
-        headers: nextHeaders,
-      })
+      if (resolved.url === sourceRequest.url) {
+        return fetchImpl(sourceRequest, { headers: nextHeaders })
+      }
+      return fetchImpl(resolved.url, await toRewrittenRequestInit(sourceRequest, nextHeaders))
     }
 
     return fetchImpl(resolved.url, {

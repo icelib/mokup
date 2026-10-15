@@ -1,5 +1,13 @@
 # mokup-vite-server-demo
 
+## 0.0.11
+
+### Patch Changes
+
+- Updated dependencies:
+  - @mokup/client@1.0.1
+  - mokup@3.1.0
+
 ## 0.0.10
 
 ### Patch Changes

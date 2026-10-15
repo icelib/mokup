@@ -6,16 +6,21 @@ This pnpm + Turbo monorepo keeps runnable demos and docs under `apps/` (for exam
 
 ## Build, Test, and Development Commands
 
-- `pnpm install` — set up workspaces; use Node 24.11+ as defined in `package.json`.
+- `pnpm install` — set up workspaces with the pnpm version pinned in `package.json` and Node.js `>=24.15.0`; CI uses Node.js 24 LTS.
 - `pnpm dev` — run `turbo run dev --parallel` for all apps that expose a `dev` script.
 - `pnpm build` — execute `turbo run build` to build every workspace with caching.
 - `pnpm test` / `pnpm test:dev` — run Vitest suites once or in watch mode across packages.
+- `pnpm run test:e2e:d1` — verify authentication and existing accounts against an isolated local D1 database.
+- `pnpm run test:vite-compat` — after `pnpm run build:packages`, check the packed loader against supported Vite 5–8 releases in an isolated consumer.
 - `pnpm lint` — invoke `turbo run lint` to apply ESLint/Stylelint policies repo-wide.
-- `pnpm script:sync` & `pnpm script:clean` — use the monorepo helper to align dependency versions or clear generated artifacts.
+- `pnpm exec repo doctor` / `pnpm exec repo check` — inspect workspace health and run the repoctl checks.
+- `pnpm exec repo clean` — intentionally delete selected workspace package directories after reviewing the selection.
+
+Development and builds require Node.js `>=24.15.0`; CI uses Node.js 24 LTS. Published packages require Node.js `>=22.12.0`; keep these two requirements separate.
 
 ## Coding Style & Naming Conventions
 
-Follow the root `.editorconfig`: two-space indentation, LF line endings, UTF-8. Prefer TypeScript (`.ts`/`.tsx`) and Vue SFCs; name files with kebab-case (`user-table.vue`) and exported symbols with PascalCase for components or camelCase for utilities. ESLint (`@icebreakers/eslint-config`) and Stylelint enforce formatting; run `pnpm lint` before committing, and rely on Husky + lint-staged to auto-fix staged files via `eslint --fix`.
+Follow the root `.editorconfig`: two-space indentation, LF line endings, UTF-8. Prefer TypeScript (`.ts`/`.tsx`) and Vue SFCs; name files with kebab-case (`user-table.vue`) and exported symbols with PascalCase for components or camelCase for utilities. Shared ESLint, Stylelint, commitlint, and lint-staged configuration comes from `repoctl/tooling` and `repoctl.config.ts`; run `pnpm lint` before committing.
 AI-generated code must comply with this project's ESLint and Stylelint rules, and any generated TypeScript must be free of type errors.
 
 ## Testing Guidelines
@@ -24,4 +29,4 @@ Vitest powers unit tests located in workspace `test/*.test.ts` (for example `pac
 
 ## Commit & Pull Request Guidelines
 
-Commits must conform to Conventional Commit syntax; recent history uses prefixes like `feat`, `fix`, and `chore`. Example: `feat(server): add auth router`. Use `pnpm commit` (commitlint prompt) or ensure your manual message passes `pnpm commitlint --edit`. Before opening a PR, make sure `pnpm lint` and `pnpm test` succeed, link related issues, and provide screenshots or logs for user-facing changes. Touching publishable packages requires a changeset (`pnpm changeset`) so releases stay traceable.
+Commits must conform to Conventional Commit syntax; recent history uses prefixes like `feat`, `fix`, and `chore`. Example: `feat(server): add auth router`. Validate the message with `pnpm commitlint --edit`. Before opening a PR, make sure `pnpm lint` and `pnpm test` succeed, link related issues, and provide screenshots or logs for user-facing changes. Touching publishable packages requires a release intent created with `pnpm change` under `.changeset/`. Preview the release with `pnpm exec repo release plan`; versioning uses pnpm 12, and publishing uses `pnpm exec repo release stable publish` after the release checks pass. Dependency upgrades alone must not change package versions or publish packages.

@@ -60,17 +60,22 @@ export default defineConfig(({ command }) => ({
   plugins: [
     vue(),
     tailwindcss(),
-    routesAliasPlugin(),
-    mokup({
-      entries: {
-        dir: mockDir,
-        prefix: '/api',
-        mode: command === 'build' ? 'server' : 'sw',
-        sw: {
-          register: resolveDocsSwRegister(command),
-        },
-      },
-    }),
+    // Published assets are generic; only the development server uses docs mocks.
+    ...(command === 'serve'
+      ? [
+          routesAliasPlugin(),
+          mokup({
+            entries: {
+              dir: mockDir,
+              prefix: '/api',
+              mode: 'sw',
+              sw: {
+                register: resolveDocsSwRegister(command),
+              },
+            },
+          }),
+        ]
+      : []),
   ],
   server: {
     port: 5174,

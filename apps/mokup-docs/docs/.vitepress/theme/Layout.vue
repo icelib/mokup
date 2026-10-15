@@ -2,10 +2,12 @@
 import { withBase } from 'vitepress'
 import DefaultTheme from 'vitepress/theme'
 import BrandLogo from './components/BrandLogo.vue'
+
+const { Layout: DefaultLayout } = DefaultTheme
 </script>
 
 <template>
-  <DefaultTheme.Layout>
+  <DefaultLayout>
     <template #nav-bar-title>
       <a class="mokup-brand-link" :href="withBase('/')">
         <BrandLogo size="small" />
@@ -16,5 +18,5 @@ import BrandLogo from './components/BrandLogo.vue'
         <BrandLogo size="large" :showText="false" />
       </div>
     </template>
-  </DefaultTheme.Layout>
+  </DefaultLayout>
 </template>

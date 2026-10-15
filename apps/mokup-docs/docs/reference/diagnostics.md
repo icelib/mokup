@@ -5,6 +5,8 @@ used as normal routes. By default these diagnostics are logged as warnings with
 a summary. You can promote selected diagnostics to build or startup errors with
 `errorOn`.
 
+Use `mokup check --json` for a report without build artifacts. Checks fail on all route diagnostics by default; `--error-on` narrows the failure policy. See [CLI check](./cli.md#check).
+
 ## Supported categories
 
 | Category             | Meaning                                                                             |

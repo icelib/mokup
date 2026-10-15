@@ -19,6 +19,22 @@ describe('usePlaygroundRoutes', () => {
     clearLastSelectedRoute()
   })
 
+  it.each(['/', '/index.html'])('loads root routes after initializing from %s', async (pathname) => {
+    const routesState = usePlaygroundRoutes()
+    const fetchRoutes = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ routes: [] }),
+    })
+    vi.stubGlobal('fetch', fetchRoutes)
+
+    expect(routesState.basePath.value).toBe('')
+    routesState.setBasePath(pathname)
+    await routesState.loadRoutes()
+
+    expect(routesState.basePath.value).toBe('/')
+    expect(fetchRoutes).toHaveBeenCalledExactlyOnceWith('/routes')
+  })
+
   it('loads routes, applies filters, and restores last selection', async () => {
     localStorage.setItem(LAST_SELECTED_ROUTE_KEY, 'GET /api/ping')
     const routesState = usePlaygroundRoutes()

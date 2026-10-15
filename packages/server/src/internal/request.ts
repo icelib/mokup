@@ -1,26 +1,59 @@
 import type { RuntimeRequest } from '@mokup/runtime'
+import type { ResolvedRequestBody } from './body'
 import type { NodeRequestLike } from './types'
-import { parseBody, resolveBody } from './body'
-import { normalizeHeaders, normalizeNodeHeaders, normalizeQuery, resolveUrl } from './normalize'
+import { resolveBody } from './body'
+import { normalizeHeaders, normalizeNodeHeaders, normalizeQuery } from './normalize'
+import { resolveNodeRequestUrl } from './request-url'
 
-function buildRuntimeRequest(
+interface PreparedRequest {
+  request: RuntimeRequest
+  readBody: () => Promise<RuntimeRequest>
+}
+
+function prepareRequest(
   url: URL,
   method: string,
   headers: Record<string, string>,
-  body: unknown,
-  rawBody?: string,
-): RuntimeRequest {
+  readBody: () => Promise<ResolvedRequestBody>,
+): PreparedRequest {
   const request: RuntimeRequest = {
     method,
     path: url.pathname,
     query: normalizeQuery(url.searchParams),
     headers,
-    body,
+    body: undefined,
   }
-  if (rawBody) {
-    request.rawBody = rawBody
+  return {
+    request,
+    async readBody() {
+      const { body, rawBody, rawBodyBytes } = await readBody()
+      return { ...request, body, ...(rawBody ? { rawBody } : {}), ...(rawBodyBytes ? { rawBodyBytes } : {}) }
+    },
   }
-  return request
+}
+
+/** Prepare routing metadata without reading, locking, or cloning the body. */
+export function prepareFetchRequest(request: Request): PreparedRequest {
+  const url = new URL(request.url)
+  const headers = normalizeHeaders(request.headers)
+  const contentType = (headers['content-type'] ?? '').split(';')[0]?.trim() ?? ''
+  return prepareRequest(url, request.method, headers, async () => {
+    const hasBody = request.body !== null
+    const bytes = await request.arrayBuffer()
+    return hasBody ? resolveBody(bytes, contentType) : { body: undefined }
+  })
+}
+
+/** Validate Node routing metadata before attaching any body stream listeners. */
+export function prepareNodeRequest(req: NodeRequestLike, bodyOverride?: unknown): PreparedRequest {
+  const headers = normalizeNodeHeaders(req.headers)
+  const contentType = (headers['content-type'] ?? '').split(';')[0]?.trim() ?? ''
+  const url = resolveNodeRequestUrl(req.url ?? req.originalUrl ?? '/', headers)
+  return prepareRequest(url, req.method ?? 'GET', headers, () => resolveBody(
+    typeof bodyOverride === 'undefined' ? req.body : bodyOverride,
+    contentType,
+    req,
+  ))
 }
 
 /**
@@ -37,18 +70,7 @@ function buildRuntimeRequest(
 export async function toRuntimeRequestFromFetch(
   request: Request,
 ): Promise<RuntimeRequest> {
-  const url = new URL(request.url)
-  const headers = normalizeHeaders(request.headers)
-  const contentType = (headers['content-type'] ?? '').split(';')[0]?.trim() ?? ''
-  const rawBody = await request.text()
-  const body = parseBody(rawBody, contentType)
-  return buildRuntimeRequest(
-    url,
-    request.method,
-    headers,
-    body,
-    rawBody || undefined,
-  )
+  return prepareFetchRequest(request).readBody()
 }
 
 /**
@@ -67,19 +89,5 @@ export async function toRuntimeRequestFromNode(
   req: NodeRequestLike,
   bodyOverride?: unknown,
 ): Promise<RuntimeRequest> {
-  const headers = normalizeNodeHeaders(req.headers)
-  const contentType = (headers['content-type'] ?? '').split(';')[0]?.trim() ?? ''
-  const url = resolveUrl(req.url ?? req.originalUrl ?? '/', headers)
-  const resolvedBody = await resolveBody(
-    typeof bodyOverride === 'undefined' ? req.body : bodyOverride,
-    contentType,
-    req,
-  )
-  return buildRuntimeRequest(
-    url,
-    req.method ?? 'GET',
-    headers,
-    resolvedBody.body,
-    resolvedBody.rawBody,
-  )
+  return prepareNodeRequest(req, bodyOverride).readBody()
 }

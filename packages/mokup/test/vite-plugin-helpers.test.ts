@@ -80,11 +80,11 @@ describe('vite plugin extracted helpers', () => {
       swConfig,
       unregisterConfig: swConfig,
       hasSwEntries: true,
-      hasSwRoutes: true,
       resolveSwImportPath: base => `${base}@id/mokup/sw`,
       resolveRequestPath: path => path,
       resolveRegisterScope: scope => scope,
       swLifecycleFileName: 'mokup-sw-lifecycle.js',
+      swLifecycleImportPath: '/base/@id/__x00__virtual:mokup-sw-lifecycle',
       resolveHtmlAssetPath: file => `/base/${file}`,
     })
     expect(buildHtml).toEqual({
@@ -101,16 +101,37 @@ describe('vite plugin extracted helpers', () => {
       swConfig,
       unregisterConfig: swConfig,
       hasSwEntries: true,
-      hasSwRoutes: true,
       resolveSwImportPath: base => `${base}@id/mokup/sw`,
       resolveRequestPath: path => path,
       resolveRegisterScope: scope => scope,
       swLifecycleFileName: null,
+      swLifecycleImportPath: '/base/@id/__x00__virtual:mokup-sw-lifecycle',
       resolveHtmlAssetPath: file => `/base/${file}`,
     })
     expect(serveHtml).toEqual({
       html: '<html></html>',
-      tags: [{ tag: 'script', attrs: { type: 'module' }, children: expect.any(String), injectTo: 'head' }],
+      tags: [{ tag: 'script', attrs: { type: 'module', src: '/base/@id/__x00__virtual:mokup-sw-lifecycle' }, injectTo: 'head' }],
     })
+  })
+
+  it('registers SW routes discovered while transforming initially empty HTML', async () => {
+    const state = { swRoutes: [] as unknown[] }
+    const result = await transformMokupIndexHtml('<html></html>', {
+      state,
+      refreshRoutes: async () => { state.swRoutes = [{}] },
+      currentServer: null,
+      command: 'serve',
+      base: '/',
+      swConfig,
+      unregisterConfig: swConfig,
+      hasSwEntries: true,
+      resolveSwImportPath: () => '/@id/mokup/sw',
+      resolveRequestPath: path => path,
+      resolveRegisterScope: scope => scope,
+      swLifecycleFileName: null,
+      swLifecycleImportPath: '/@id/__x00__virtual:mokup-sw-lifecycle',
+      resolveHtmlAssetPath: path => path,
+    })
+    expect(result).toMatchObject({ tags: [{ attrs: { src: '/@id/__x00__virtual:mokup-sw-lifecycle' } }] })
   })
 })

@@ -128,5 +128,7 @@ Supported categories are the same as Vite: `invalid-route`, `unsupported-fields`
 
 - Published packages are ESM-only. Prefer `webpack.config.ts` or `webpack.config.mjs`.
 - Dev server support uses `devServer.setupMiddlewares`; ensure `webpack-dev-server` is enabled.
+- Closing Webpack watching cancels queued mock refreshes and discards unfinished results. Starting a new watch session restores mock watching. Route and SW bundle updates are published together after a successful refresh; an unsuccessful refresh keeps the previous successful result.
+- Files edited while the watcher starts are refreshed once filesystem watching is ready.
 - `mokupWebpack(...)` auto-creates a `devServer` object, so you can omit it unless you need custom dev-server settings.
 - The SW lifecycle script is emitted under your assets directory (default `assets/mokup-sw-lifecycle.js`). With `html-webpack-plugin` it is auto-injected; otherwise include it manually.

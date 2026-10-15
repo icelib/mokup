@@ -1,7 +1,8 @@
 import type { PlaygroundRoute } from '../src/types'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { nextTick, ref } from 'vue'
+import { effectScope, nextTick, ref } from 'vue'
 import { usePlaygroundRequest } from '../src/hooks/usePlaygroundRequest'
+import { usePlaygroundRoutes } from '../src/hooks/usePlaygroundRoutes'
 
 vi.mock('vue-i18n', () => ({
   useI18n: () => ({
@@ -18,6 +19,7 @@ describe('usePlaygroundRequest', () => {
   }
 
   afterEach(() => {
+    vi.unstubAllEnvs()
     vi.unstubAllGlobals()
     vi.restoreAllMocks()
   })
@@ -229,6 +231,53 @@ describe('usePlaygroundRequest', () => {
     await nextTick()
 
     expect(sockets).toHaveLength(0)
+  })
+
+  it.each(['/', '/index.html'])('connects enabled root metrics after initializing from %s', async (pathname) => {
+    vi.stubEnv('DEV', false)
+    vi.stubEnv('VITE_MOKUP_PLAYGROUND_WS', 'true')
+    const sockets: MockWebSocket[] = []
+    class MockWebSocket {
+      listeners = new Map<string, (event: MessageEvent) => void>()
+      close = vi.fn()
+      constructor(public url: string) {
+        sockets.push(this)
+      }
+
+      addEventListener(event: string, handler: (event: MessageEvent) => void) {
+        this.listeners.set(event, handler)
+      }
+    }
+    vi.stubGlobal('window', { location: { origin: 'http://localhost' } })
+    vi.stubGlobal('WebSocket', MockWebSocket as never)
+    const scope = effectScope()
+    try {
+      const state = scope.run(() => {
+        const routesState = usePlaygroundRoutes()
+        const requestState = usePlaygroundRequest(routesState.selected, { basePath: routesState.basePath })
+        return { routesState, requestState }
+      })!
+      expect(sockets).toHaveLength(0)
+
+      state.routesState.setBasePath(pathname)
+      await nextTick()
+
+      expect(sockets).toHaveLength(1)
+      const socket = sockets[0]!
+      expect(socket.url).toBe('ws://localhost/ws')
+      socket.listeners.get('message')?.({
+        data: JSON.stringify({ type: 'snapshot', total: 2, perRoute: { 'GET /api/hello': 2 } }),
+      } as MessageEvent)
+      expect(state.requestState.getRouteCount(route)).toBe(2)
+
+      state.routesState.setBasePath(pathname === '/' ? '/index.html' : '/')
+      await nextTick()
+      expect(sockets).toHaveLength(1)
+    }
+    finally {
+      scope.stop()
+      sockets.forEach(socket => socket.close())
+    }
   })
 
   it('does not increment counts when server counts are active', async () => {

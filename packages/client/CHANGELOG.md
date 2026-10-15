@@ -1,5 +1,19 @@
 # @mokup/client
 
+## 1.0.1
+
+### Patch Changes
+
+- Preserve native Fetch Request body, init override, cancellation, keepalive, and redirect semantics. Buffer bodies when rewriting Request URLs so binary and multipart payloads remain replayable.
+
+  Preserve Axios base URL paths, absolute URL policy, protocol-relative host checks, and current instance defaults in both the client adapter and query executor. Keep native Axios header values and invalid URL rejection, and correct the Axios type augmentation.
+
+- Preserve repeated case-insensitive Fetch header tuples with the same comma-separated semantics as the native Headers constructor.
+
+- Update runtime dependencies and the shared build toolchain to current compatible releases, including stable Rolldown and Vite 8 support. Preserve the published packages' Node.js runtime requirement of `^20.19.0 || >=22.12.0`.
+
+  Migrate repository tooling and release management to repoctl and pnpm 12 native versioning. Development, builds, and CI use Node.js 24 LTS from 24.15.0; TypeScript remains on its latest compatible release line. Integrate the Hono Node server 2.x WebSocket migration while retaining the published Node.js runtime range.
+
 ## 1.0.0
 
 ### Major Changes

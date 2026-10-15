@@ -1,5 +1,30 @@
 # @mokup/runtime
 
+## 2.1.0
+
+### Minor Changes
+
+- Add `runtime.hasRoute({ method, path })` so adapters can check route ownership before consuming a request body. Preserve the same method, HEAD fallback, and path priorities as `runtime.handle`, and share one cached manifest across concurrent checks and requests while allowing failed manifest loads to retry.
+
+### Patch Changes
+
+- Apply 204, 205, and 304 route status overrides without attempting to construct an invalid Fetch response with a body. Cancel discarded response streams, remove payload framing headers from 204 and 205 responses, and retain representation metadata on 304 responses.
+
+- Execute explicit HEAD routes before falling back to GET across development servers, Connect middleware, Fetch runtimes, and Service Workers. Preserve middleware, response hooks, route parameters, and mounted Hono error handlers while keeping HEAD responses bodyless and HEAD-only routes available for GET fallthrough. Cancel discarded HEAD response streams without losing representation headers such as Content-Length.
+
+- Preserve Mokup route grammar when registering Hono routes. Numeric, hyphenated, and repeated parameter names no longer break routing, and static colons, wildcards, braces, and pipes match literally. Keep original parameter names available to middleware, mounted apps, and error handlers.
+
+- Preserve original request bytes when server adapters reconstruct Fetch requests, fixing binary and multipart file uploads without changing existing parsed body or raw text fields. Runtime requests can provide optional `rawBodyBytes`, which takes precedence over `rawBody` and `body`, including empty byte arrays and sliced buffers.
+
+- Preserve multiple Set-Cookie fields in optional runtime response metadata, retain binary bytes for media types such as WebAssembly and fonts, and apply response status overrides safely for bodyless statuses.
+
+- Update runtime dependencies and the shared build toolchain to current compatible releases, including stable Rolldown and Vite 8 support. Preserve the published packages' Node.js runtime requirement of `^20.19.0 || >=22.12.0`.
+
+  Migrate repository tooling and release management to repoctl and pnpm 12 native versioning. Development, builds, and CI use Node.js 24 LTS from 24.15.0; TypeScript remains on its latest compatible release line. Integrate the Hono Node server 2.x WebSocket migration while retaining the published Node.js runtime range.
+
+- Updated dependencies:
+  - @mokup/shared@2.0.1
+
 ## 2.0.0
 
 ### Major Changes

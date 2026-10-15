@@ -1,7 +1,7 @@
 {
   "name": "@mokup/playground",
   "type": "module",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Static playground UI for mokup mock APIs.",
   "license": "MIT",
   "homepage": "https://mokup.icebreaker.top",
@@ -48,6 +48,6 @@
     "vite": "catalog:",
     "vue": "catalog:",
     "vue-i18n": "^11.4.14",
-    "vue-tsc": "~3.3.13"
+    "vue-tsc": "catalog:"
   }
 }

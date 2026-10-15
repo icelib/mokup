@@ -2,6 +2,7 @@ import type { resolveSwConfig, resolveSwUnregisterConfig } from '../../internal/
 import { existsSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { buildSwRegistrationScript } from '../../shared/sw-registration-script'
 
 interface SwResolveContext {
   resolve: (id: string) => Promise<{ id: string } | null>
@@ -89,17 +90,7 @@ function buildSwLifecycleScript(params: {
   }
   const path = resolveRequestPath(swConfig.path)
   const scope = resolveRegisterScope(swConfig.scope)
-  return [
-    `import { registerMokupServiceWorker } from ${JSON.stringify(importPath)}`,
-    '(async () => {',
-    `  const registration = await registerMokupServiceWorker({ path: ${JSON.stringify(path)}, scope: ${JSON.stringify(scope)} })`,
-    '  if (import.meta.hot && registration) {',
-    '    import.meta.hot.on(\'mokup:routes-changed\', () => {',
-    '      registration.update()',
-    '    })',
-    '  }',
-    '})()',
-  ].join('\n')
+  return buildSwRegistrationScript(importPath, path, scope)
 }
 
 function buildSwLifecycleInlineScript(params: {

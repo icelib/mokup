@@ -56,6 +56,7 @@ export function registerPlaygroundRoutes(params: {
     return
   }
   const playgroundPath = normalizePlaygroundPath(params.config.path)
+  const routePrefix = playgroundPath === '/' ? '' : playgroundPath
   const distDir = resolvePlaygroundDist()
   const indexPath = join(distDir, 'index.html')
 
@@ -81,9 +82,9 @@ export function registerPlaygroundRoutes(params: {
     }
     return c.redirect(`${playgroundPath}/`)
   })
-  params.app.get(`${playgroundPath}/`, () => serveIndex())
-  params.app.get(`${playgroundPath}/index.html`, () => serveIndex())
-  params.app.get(`${playgroundPath}/routes`, (c) => {
+  params.app.get(`${routePrefix}/`, () => serveIndex())
+  params.app.get(`${routePrefix}/index.html`, () => serveIndex())
+  params.app.get(`${routePrefix}/routes`, (c) => {
     const baseRoot = resolveGroupRoot(params.dirs, params.root)
     const groups = resolveGroups(params.dirs, baseRoot)
     return c.json({
@@ -100,7 +101,7 @@ export function registerPlaygroundRoutes(params: {
       ),
     })
   })
-  params.app.get(`${playgroundPath}/*`, async (c) => {
+  params.app.get(`${routePrefix}/*`, async (c, next) => {
     const pathname = c.req.path
     const relPath = pathname.slice(playgroundPath.length).replace(LEADING_SLASH_RE, '')
     if (!relPath || relPath === '/') {
@@ -110,6 +111,9 @@ export function registerPlaygroundRoutes(params: {
       return await readPlaygroundAsset(distDir, relPath)
     }
     catch {
+      if (playgroundPath === '/') {
+        return next()
+      }
       return c.notFound()
     }
   })

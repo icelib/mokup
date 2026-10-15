@@ -1,5 +1,51 @@
 # @mokup/server
 
+## 2.0.1
+
+### Patch Changes
+
+- Apply 204, 205, and 304 route status overrides without attempting to construct an invalid Fetch response with a body. Cancel discarded response streams, remove payload framing headers from 204 and 205 responses, and retain representation metadata on 304 responses.
+
+- Execute explicit HEAD routes before falling back to GET across development servers, Connect middleware, Fetch runtimes, and Service Workers. Preserve middleware, response hooks, route parameters, and mounted Hono error handlers while keeping HEAD responses bodyless and HEAD-only routes available for GET fallthrough. Cancel discarded HEAD response streams without losing representation headers such as Content-Length.
+
+- Serialize and coalesce fetch server route refreshes so a slow earlier scan cannot overwrite newer routes. Publish route metadata and the Hono app together only after a successful build. Closing file watchers cancels pending background refreshes and waits for started scans to settle, while explicit refreshes remain available afterward.
+
+- Preserve Mokup route grammar when registering Hono routes. Numeric, hyphenated, and repeated parameter names no longer break routing, and static colons, wildcards, braces, and pipes match literally. Keep original parameter names available to middleware, mounted apps, and error handlers.
+
+- Upgrade runtime dependencies, migrate Node WebSocket support to `@hono/node-server` 2, and add Vite 8 peer compatibility.
+
+- Pass Connect and Express adapter errors to the framework error handler, report malformed HTTP URLs and Host headers as bad requests, and preserve paths beginning with two slashes.
+
+- Match Playground mounts at complete path segments so neighboring application routes are not served as Playground assets. Preserve base aliases, correctly apply bases whose names only prefix a path segment, and serve the index, route list, and assets when Playground is mounted at `/`.
+
+  Keep mock routes reachable alongside a root-mounted Playground and register its WebSocket metrics endpoint at `/ws`.
+
+  Preserve `/` as the initialized root mount in the Playground UI so explicitly enabled WebSocket metrics connect to `/ws`, while route requests continue to use `/routes`.
+
+- Preserve original request bytes when server adapters reconstruct Fetch requests, fixing binary and multipart file uploads without changing existing parsed body or raw text fields. Runtime requests can provide optional `rawBodyBytes`, which takes precedence over `rawBody` and `body`, including empty byte arrays and sliced buffers.
+
+- Preserve all query parameter and header names during request normalization, including names such as `__proto__`, `constructor`, and `toString`. Keep repeated query values and ordinary object prototypes intact instead of mixing in inherited values or changing the result's prototype.
+
+- Match mock routes before consuming request bodies in Node, Express, Koa, Fastify, Fetch, Hono, and Worker adapters. Unmatched requests retain their original streams for downstream handlers, while matched routes continue to accept raw and already-parsed bodies.
+
+- Reject non-HTTP URL schemes in Node request targets before matching mock or Playground routes. Return a bad-request error for FTP, WebSocket, file, and other non-HTTP targets while preserving ordinary paths, leading double slashes, and absolute HTTP(S) URLs.
+
+- Settle request body reads for streams that have already ended or closed, propagate stream errors, and release body buffers and owned listeners when reading finishes.
+
+- Preserve separate Set-Cookie fields across Node, Koa, Fastify, Fetch, Hono, and Worker adapters, including cookies with Expires dates. Native Node and Koa responses append the complete cookie list; custom response shapes with only scalar header setters retain their previous behavior and can opt in with appendHeader or append.
+
+  Register Fastify hooks in the parent scope so standard plugin registration handles mock requests. Preserve Koa HEAD status and headers after assigning the body, and send binary responses as buffers so Koa does not serialize them as JSON.
+
+- Update runtime dependencies and the shared build toolchain to current compatible releases, including stable Rolldown and Vite 8 support. Preserve the published packages' Node.js runtime requirement of `^20.19.0 || >=22.12.0`.
+
+  Migrate repository tooling and release management to repoctl and pnpm 12 native versioning. Development, builds, and CI use Node.js 24 LTS from 24.15.0; TypeScript remains on its latest compatible release line. Integrate the Hono Node server 2.x WebSocket migration while retaining the published Node.js runtime range.
+
+- Updated dependencies:
+  - @mokup/core@2.0.1
+  - @mokup/playground@1.0.1
+  - @mokup/runtime@2.1.0
+  - @mokup/shared@2.0.1
+
 ## 2.0.0
 
 ### Major Changes

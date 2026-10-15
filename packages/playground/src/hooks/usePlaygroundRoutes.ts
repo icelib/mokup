@@ -53,7 +53,7 @@ export function usePlaygroundRoutes() {
     return map
   })
   const routesEndpoint = computed(() => {
-    const base = basePath.value || ''
+    const base = normalizeBasePath(basePath.value)
     return `${base}/routes`
   })
 
@@ -149,7 +149,7 @@ export function usePlaygroundRoutes() {
   const selectDisabledRoute = (route: PlaygroundDisabledRoute | null) => (selectedDisabled.value = route)
   const selectIgnoredRoute = (route: PlaygroundIgnoredRoute | null) => (selectedIgnored.value = route)
   const selectConfig = (config: PlaygroundConfigFile | null) => (selectedConfig.value = config)
-  const setBasePath = (pathname: string) => (basePath.value = normalizeBasePath(pathname))
+  const setBasePath = (pathname: string) => (basePath.value = normalizeBasePath(pathname) || '/')
 
   async function loadRoutes() {
     loading.value = true

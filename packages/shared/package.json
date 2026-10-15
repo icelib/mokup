@@ -1,7 +1,7 @@
 {
   "name": "@mokup/shared",
   "type": "module",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "Shared dependency exports for mokup.",
   "license": "MIT",
   "homepage": "https://mokup.icebreaker.top",
@@ -56,6 +56,11 @@
       "import": "./dist/hono.mjs",
       "default": "./dist/hono.mjs"
     },
+    "./head-routes": {
+      "types": "./dist/head-routes.d.ts",
+      "import": "./dist/head-routes.mjs",
+      "default": "./dist/head-routes.mjs"
+    },
     "./jsonc-parser": {
       "types": "./dist/jsonc-parser.d.ts",
       "import": "./dist/jsonc-parser.mjs",
@@ -108,6 +113,11 @@
       "import": "./dist/route-constants.mjs",
       "default": "./dist/route-constants.mjs"
     },
+    "./response-overrides": {
+      "types": "./dist/response-overrides.d.ts",
+      "import": "./dist/response-overrides.mjs",
+      "default": "./dist/response-overrides.mjs"
+    },
     "./route-utils": {
       "types": "./dist/route-utils.d.ts",
       "import": "./dist/route-utils.mjs",
@@ -118,10 +128,20 @@
       "import": "./dist/scan-utils.mjs",
       "default": "./dist/scan-utils.mjs"
     },
+    "./stream-body": {
+      "types": "./dist/stream-body.d.ts",
+      "import": "./dist/stream-body.mjs",
+      "default": "./dist/stream-body.mjs"
+    },
     "./timing": {
       "types": "./dist/timing.d.ts",
       "import": "./dist/timing.mjs",
       "default": "./dist/timing.mjs"
+    },
+    "./hono-routes": {
+      "types": "./dist/hono-routes.d.ts",
+      "import": "./dist/hono-routes.mjs",
+      "default": "./dist/hono-routes.mjs"
     }
   },
   "publishConfig": {
@@ -156,6 +176,9 @@
       "hono": [
         "dist/hono.d.ts"
       ],
+      "head-routes": [
+        "dist/head-routes.d.ts"
+      ],
       "jsonc-parser": [
         "dist/jsonc-parser.d.ts"
       ],
@@ -186,14 +209,23 @@
       "route-constants": [
         "dist/route-constants.d.ts"
       ],
+      "response-overrides": [
+        "dist/response-overrides.d.ts"
+      ],
       "route-utils": [
         "dist/route-utils.d.ts"
       ],
       "scan-utils": [
         "dist/scan-utils.d.ts"
       ],
+      "stream-body": [
+        "dist/stream-body.d.ts"
+      ],
       "timing": [
         "dist/timing.d.ts"
+      ],
+      "hono-routes": [
+        "dist/hono-routes.d.ts"
       ]
     }
   },
@@ -214,10 +246,16 @@
   "dependencies": {
     "chokidar": "^5.0.0",
     "consola": "^3.4.2",
-    "hono": "^4.13.13",
+    "hono": "catalog:",
     "jsonc-parser": "^3.3.1",
     "pathe": "catalog:",
-    "rolldown": "1.2.14",
+    "rolldown": "catalog:",
     "tsx": "catalog:"
+  },
+  "tsd": {
+    "compilerOptions": {
+      "module": "NodeNext",
+      "rootDir": "."
+    }
   }
 }

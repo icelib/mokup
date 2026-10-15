@@ -126,6 +126,7 @@ describe('core config resolver', () => {
       }
       const server = {
         moduleGraph: {
+          resolveUrl: vi.fn().mockImplementation(async (id: string) => [id, id]),
           getModuleById: vi.fn().mockReturnValue(null),
           invalidateModule: vi.fn(),
         },
@@ -162,6 +163,7 @@ describe('core config resolver', () => {
 
       const server = {
         moduleGraph: {
+          resolveUrl: vi.fn().mockImplementation(async (id: string) => [id, id]),
           getModuleById: vi.fn().mockReturnValue(null),
           invalidateModule: vi.fn(),
         },

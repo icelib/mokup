@@ -34,7 +34,12 @@ export function isInDirs(file: string, dirs: string[]) {
 
 function testPatterns(patterns: RegExp | RegExp[], value: string) {
   const list = Array.isArray(patterns) ? patterns : [patterns]
-  return list.some(pattern => pattern.test(value))
+  return list.some((pattern) => {
+    const matcher = pattern.global || pattern.sticky
+      ? new RegExp(pattern.source, pattern.flags)
+      : pattern
+    return matcher.test(value)
+  })
 }
 
 export function matchesFilter(

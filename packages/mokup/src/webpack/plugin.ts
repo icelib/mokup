@@ -1,10 +1,7 @@
 import type { PreviewServer, ViteDevServer } from 'vite'
 import type { MokupPluginOptions } from '../shared/types'
 
-import type { BundleState } from './plugin/bundles'
-import type { PluginState } from './plugin/state'
 import type {
-  WebpackCompiler,
   WebpackPluginInstance,
 } from './plugin/types'
 import { cwd } from 'node:process'
@@ -16,21 +13,14 @@ import {
 import { createMiddleware, createPlaygroundMiddleware, resolvePlaygroundOptions, resolveSwConfig, resolveSwUnregisterConfig } from '../internal/core'
 import { resolvePlaygroundDist } from '../playground/assets'
 import { createLogger } from '../shared/logger'
-import { resolveDirs } from '../shared/utils'
-import { createBundleBuilder } from './plugin/bundles'
-import { resolveHtmlWebpackPlugin } from './plugin/html'
+import { createCompilationHandler } from './plugin/compilation'
+import { createWebpackController } from './plugin/controller'
 import { normalizeMokupOptions, normalizeOptions } from './plugin/options'
 import {
-  joinPublicPath,
   resolveAssetsDir,
   resolveBaseFromPublicPath,
-  resolveModuleFilePath,
-  resolveRegisterPath,
-  resolveRegisterScope,
 } from './plugin/paths'
-import { createRouteRefresher } from './plugin/refresh'
 import { createSwMiddleware } from './plugin/sw-middleware'
-import { createWebpackWatcher } from './plugin/watcher'
 
 const pluginName = 'mokup:webpack'
 const lifecycleBaseName = 'mokup-sw-lifecycle.js'
@@ -57,7 +47,6 @@ export function createMokupWebpackPlugin(
       logger.warn(...args)
     },
   }
-  const hasSwEntries = optionList.some(entry => entry.mode === 'sw')
   const swConfig = resolveSwConfig(optionList, configLogger)
   const unregisterConfig = resolveSwUnregisterConfig(optionList, configLogger)
   const { error: swDiagnosticError } = reportDiagnostics({
@@ -68,232 +57,64 @@ export function createMokupWebpackPlugin(
   if (swDiagnosticError) {
     throw swDiagnosticError
   }
-  let root = cwd()
-  let base = '/'
-  let assetsDir = 'assets'
-  const state: PluginState = {
-    routes: [],
-    serverRoutes: [],
-    swRoutes: [],
-    disabledRoutes: [],
-    ignoredRoutes: [],
-    configFiles: [],
-    disabledConfigFiles: [],
-    app: null,
-    lastDiagnosticsSignature: null,
-  }
-  type Watcher = ReturnType<typeof createWebpackWatcher>
-  let watcher: Watcher | null = null
-  let watchingCompiler: WebpackCompiler | null = null
-  const bundleState: BundleState = {
-    swLifecycleBundle: null,
-    swBundle: null,
-  }
-  let swLifecycleFileName = `${assetsDir}/${lifecycleBaseName}`
-  let warnedHtml = false
-  const resolveAllDirs = () => {
-    const dirs: string[] = []
-    const seen = new Set<string>()
-    for (const entry of optionList) {
-      for (const dir of resolveDirs(entry.dir, root)) {
-        if (seen.has(dir)) {
-          continue
-        }
-        seen.add(dir)
-        dirs.push(dir)
-      }
-    }
-    return dirs
-  }
-  const hasSwRoutes = () => !!swConfig && state.swRoutes.length > 0
-  const refreshRouteParams: Parameters<typeof createRouteRefresher>[0] = {
-    state,
-    optionList,
-    root: () => root,
-    logger,
-  }
-  if (normalizedOptions.errorOn) {
-    refreshRouteParams.errorOn = normalizedOptions.errorOn
-  }
-  const refreshRoutes = createRouteRefresher(refreshRouteParams)
-  const { rebuildBundles, ensureBuilt } = createBundleBuilder({
-    bundleState,
-    state,
-    root: () => root,
-    swConfig,
-    unregisterConfig,
-    hasSwEntries,
-    hasSwRoutes,
-    resolveRequestPath: path => resolveRegisterPath(base, path),
-    resolveRegisterScope: scope => resolveRegisterScope(base, scope),
-    resolveModulePath: resolveModuleFilePath,
-    refreshRoutes,
-    logger,
-  })
-
-  const playgroundMiddleware = createPlaygroundMiddleware({
-    getRoutes: () => state.routes,
-    getDisabledRoutes: () => state.disabledRoutes,
-    getIgnoredRoutes: () => state.ignoredRoutes,
-    getConfigFiles: () => state.configFiles,
-    getDisabledConfigFiles: () => state.disabledConfigFiles,
-    config: playgroundConfig,
-    logger,
-    getDirs: () => resolveAllDirs(),
-    getServer: () => ({ config: { base, root } } as ViteDevServer | PreviewServer),
-    resolvePlaygroundDist,
-  })
-
-  const swMiddleware = createSwMiddleware({
-    swConfig,
-    hasSwRoutes,
-    getBase: () => base,
-    ensureBuilt,
-    getSwBundle: () => bundleState.swBundle,
-  })
-
-  const mockMiddleware = createMiddleware(() => state.app, logger)
-
   return {
     apply(compiler) {
-      root = compiler.context ?? cwd()
-      assetsDir = resolveAssetsDir(compiler.options.output?.assetModuleFilename)
-      swLifecycleFileName = `${assetsDir}/${lifecycleBaseName}`
-      base = resolveBaseFromPublicPath(compiler.options.output?.publicPath)
-
-      compiler.hooks.watchRun.tap(pluginName, (active) => {
-        watchingCompiler = active
+      const root = compiler.context ?? cwd()
+      const assetsDir = resolveAssetsDir(compiler.options.output?.assetModuleFilename)
+      const getBase = () => resolveBaseFromPublicPath(
+        compiler.options.devServer?.devMiddleware?.publicPath ?? compiler.options.output?.publicPath,
+      )
+      const controller = createWebpackController({
+        compiler,
+        optionList,
+        root,
+        getBase,
+        swConfig,
+        unregisterConfig,
+        watchEnabled,
+        logger,
+        ...(normalizedOptions.errorOn ? { errorOn: normalizedOptions.errorOn } : {}),
       })
+      const playgroundMiddleware = createPlaygroundMiddleware({
+        getRoutes: () => controller.getSnapshot()?.state.routes ?? [],
+        getDisabledRoutes: () => controller.getSnapshot()?.state.disabledRoutes ?? [],
+        getIgnoredRoutes: () => controller.getSnapshot()?.state.ignoredRoutes ?? [],
+        getConfigFiles: () => controller.getSnapshot()?.state.configFiles ?? [],
+        getDisabledConfigFiles: () => controller.getSnapshot()?.state.disabledConfigFiles ?? [],
+        config: playgroundConfig,
+        logger,
+        getDirs: controller.getDirs,
+        getServer: () => ({ config: { base: getBase(), root } } as ViteDevServer | PreviewServer),
+        resolvePlaygroundDist,
+      })
+      const swMiddleware = createSwMiddleware({ swConfig, getSession: controller.getSession, getBase })
+      const mockMiddleware = createMiddleware(() => controller.getSnapshot()?.state.app ?? null, logger)
 
       compiler.hooks.beforeCompile.tapPromise(pluginName, async () => {
-        const devPublicPath = compiler.options.devServer?.devMiddleware?.publicPath
-        base = resolveBaseFromPublicPath(devPublicPath ?? compiler.options.output?.publicPath)
-        await ensureBuilt()
+        await controller.ensureBuilt()
       })
-
-      compiler.hooks.thisCompilation.tap(pluginName, (compilation) => {
-        const HtmlWebpackPlugin = resolveHtmlWebpackPlugin()
-        if (HtmlWebpackPlugin) {
-          const hooks = HtmlWebpackPlugin.getHooks(compilation)
-          const injectTag = () => {
-            if (!bundleState.swLifecycleBundle) {
-              return
-            }
-            const tagBase = {
-              tagName: 'script',
-              voidTag: false,
-              attributes: {
-                type: 'module',
-              },
-              meta: { plugin: pluginName },
-            }
-            if ('alterAssetTagGroups' in hooks && hooks.alterAssetTagGroups) {
-              hooks.alterAssetTagGroups.tap(pluginName, (data) => {
-                const src = joinPublicPath(data.publicPath ?? '', swLifecycleFileName)
-                data.headTags.unshift({
-                  ...tagBase,
-                  attributes: {
-                    ...tagBase.attributes,
-                    src,
-                  },
-                })
-              })
-              return
-            }
-            if ('alterAssetTags' in hooks && hooks.alterAssetTags) {
-              hooks.alterAssetTags.tap(pluginName, (data) => {
-                const src = joinPublicPath(data.publicPath ?? '', swLifecycleFileName)
-                data.assetTags.scripts.unshift({
-                  ...tagBase,
-                  attributes: {
-                    ...tagBase.attributes,
-                    src,
-                  },
-                })
-              })
-            }
-          }
-          injectTag()
-        }
-        else if (!warnedHtml) {
-          warnedHtml = true
-          logger.warn('html-webpack-plugin not found; skip SW lifecycle injection.')
-        }
-
-        compilation.hooks.processAssets.tapPromise(
-          { name: pluginName, stage: compiler.webpack.Compilation.PROCESS_ASSETS_STAGE_ADDITIONS },
-          async () => {
-            await ensureBuilt()
-            if (bundleState.swLifecycleBundle) {
-              const RawSource = compiler.webpack.sources.RawSource
-              const source = new RawSource(bundleState.swLifecycleBundle)
-              if (compilation.getAsset(swLifecycleFileName)) {
-                compilation.updateAsset(swLifecycleFileName, source)
-              }
-              else {
-                compilation.emitAsset(swLifecycleFileName, source)
-              }
-            }
-            if (bundleState.swBundle && swConfig) {
-              const fileName = swConfig.path.startsWith('/')
-                ? swConfig.path.slice(1)
-                : swConfig.path
-              const RawSource = compiler.webpack.sources.RawSource
-              const source = new RawSource(bundleState.swBundle)
-              if (compilation.getAsset(fileName)) {
-                compilation.updateAsset(fileName, source)
-              }
-              else {
-                compilation.emitAsset(fileName, source)
-              }
-            }
-          },
-        )
-      })
+      compiler.hooks.thisCompilation.tap(pluginName, createCompilationHandler({
+        compiler,
+        getSession: controller.getSession,
+        lifecycleFileName: `${assetsDir}/${lifecycleBaseName}`,
+        swPath: swConfig?.path,
+        logger,
+      }))
 
       const devServer = compiler.options.devServer
       if (devServer) {
         const originalSetup = devServer.setupMiddlewares
         devServer.setupMiddlewares = (middlewares, server) => {
-          const devPublicPath = compiler.options.devServer?.devMiddleware?.publicPath
-          base = resolveBaseFromPublicPath(devPublicPath ?? compiler.options.output?.publicPath)
-          void ensureBuilt()
-
+          controller.setup()
           const resolved = originalSetup ? originalSetup(middlewares, server) ?? middlewares : middlewares
           resolved.unshift(
             { name: 'mokup-playground', middleware: playgroundMiddleware },
             { name: 'mokup-sw', middleware: swMiddleware },
             { name: 'mokup-mock', middleware: mockMiddleware },
           )
-
-          if (!watcher && watchEnabled) {
-            const dirs = resolveAllDirs()
-            watcher = createWebpackWatcher({
-              enabled: watchEnabled,
-              dirs,
-              onRefresh: async () => {
-                try {
-                  await refreshRoutes()
-                  await rebuildBundles()
-                  if (watchingCompiler?.watching) {
-                    watchingCompiler.watching.invalidate()
-                  }
-                }
-                catch (error) {
-                  logger.error('Failed to refresh mokup routes:', error)
-                }
-              },
-            })
-          }
-
           return resolved
         }
       }
-
-      compiler.hooks.watchClose.tap(pluginName, () => {
-        watcher?.close()
-        watcher = null
-      })
     },
   }
 }

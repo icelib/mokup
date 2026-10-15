@@ -20,7 +20,10 @@ describe('module loader workspace config', () => {
     const writes: string[] = []
     const dir = await fs.mkdtemp(join(tmpdir(), 'mokup-module-workspace-'))
     const valueFile = join(dir, 'value.mjs')
+    const sourceFile = join(dir, 'mock.ts')
     await fs.writeFile(valueFile, 'export const value = 1', 'utf8')
+    await fs.writeFile(sourceFile, 'export const value = 1', 'utf8')
+    await fs.writeFile(join(dir, 'package.json'), '{"type":"module"}')
 
     vi.doMock('node:url', async () => {
       const actual = await vi.importActual<typeof import('node:url')>('node:url')
@@ -52,7 +55,7 @@ describe('module loader workspace config', () => {
 
     try {
       const { loadModule } = await import('@mokup/core')
-      const mod = await loadModule('/tmp/mock.ts')
+      const mod = await loadModule(sourceFile)
 
       expect(mod?.value).toBe(1)
       expect(register).toHaveBeenCalledTimes(1)

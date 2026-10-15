@@ -4,6 +4,7 @@ import type { Logger } from '../../shared/types'
 import type { MiddlewareHandler } from './middleware'
 import type { PluginState } from './state'
 import { buildSwScript, createMiddleware } from '../../internal/core'
+import { parseHttpRequestUrl } from '../../shared/http-request'
 import { addMiddlewareFirst } from './middleware'
 import {
   resolveRegisterPath,
@@ -11,6 +12,7 @@ import {
   resolveSwRuntimeImportPath,
 } from './paths'
 import { patchPlaygroundPrintUrls } from './playground'
+import { createStaticPlaygroundPreviewMiddleware } from './preview-playground'
 import { setupPreviewWatchers, setupViteWatchers } from './watcher'
 
 async function configureDevServer(params: {
@@ -22,7 +24,6 @@ async function configureDevServer(params: {
   playgroundConfig: PlaygroundConfig
   playgroundMiddleware: MiddlewareHandler
   swConfig: ReturnType<typeof resolveSwConfig>
-  hasSwRoutes: () => boolean
   enableViteMiddleware: boolean
   refreshRoutes: (
     server?: ViteDevServer | PreviewServer,
@@ -40,7 +41,6 @@ async function configureDevServer(params: {
     playgroundConfig,
     playgroundMiddleware,
     swConfig,
-    hasSwRoutes,
     enableViteMiddleware,
     refreshRoutes,
     resolveAllDirs,
@@ -48,7 +48,7 @@ async function configureDevServer(params: {
   } = params
 
   await refreshRoutes(server)
-  if (enableViteMiddleware && state.serverRoutes.length > 0) {
+  if (enableViteMiddleware) {
     addMiddlewareFirst(server, createMiddleware(() => state.app, logger))
   }
   addMiddlewareFirst(server, playgroundMiddleware)
@@ -57,10 +57,12 @@ async function configureDevServer(params: {
     patchPlaygroundPrintUrls(server, playgroundPath)
   }
   const swPath = swConfig ? resolveRegisterPath(base, swConfig.path) : null
-  if (swPath && hasSwRoutes()) {
+  if (swPath) {
     server.middlewares.use(async (req, res, next) => {
-      const requestUrl = req.url ?? '/'
-      const parsed = new URL(requestUrl, 'http://mokup.local')
+      const parsed = parseHttpRequestUrl(req, res)
+      if (!parsed) {
+        return
+      }
       if (parsed.pathname !== swPath) {
         return next()
       }
@@ -92,11 +94,12 @@ async function configureDevServer(params: {
     return
   }
   const dirs = resolveAllDirs()
-  setupViteWatchers({
+  return setupViteWatchers({
     server,
     root,
     dirs,
     refresh: options => refreshRoutes(server, options),
+    onError: error => logger.error('Mock route refresh failed:', error),
   })
 }
 
@@ -109,7 +112,6 @@ async function configurePreviewServer(params: {
   playgroundConfig: PlaygroundConfig
   playgroundMiddleware: MiddlewareHandler
   swConfig: ReturnType<typeof resolveSwConfig>
-  hasSwRoutes: () => boolean
   enableViteMiddleware: boolean
   refreshRoutes: (
     server?: ViteDevServer | PreviewServer,
@@ -124,9 +126,8 @@ async function configurePreviewServer(params: {
     root,
     base,
     logger,
+    playgroundConfig,
     playgroundMiddleware,
-    swConfig,
-    hasSwRoutes,
     enableViteMiddleware,
     refreshRoutes,
     resolveAllDirs,
@@ -134,40 +135,21 @@ async function configurePreviewServer(params: {
   } = params
 
   await refreshRoutes(server)
-  if (enableViteMiddleware && state.serverRoutes.length > 0) {
-    addMiddlewareFirst(server, createMiddleware(() => state.app, logger))
+  const mockMiddleware = enableViteMiddleware ? createMiddleware(() => state.app, logger) : null
+  if (playgroundConfig.enabled && playgroundConfig.build) {
+    addMiddlewareFirst(server, createStaticPlaygroundPreviewMiddleware({
+      base,
+      playgroundPath: playgroundConfig.path,
+      mockMiddleware,
+    }))
   }
-  addMiddlewareFirst(server, playgroundMiddleware)
-  const swPath = swConfig ? resolveRegisterPath(base, swConfig.path) : null
-  if (swPath && hasSwRoutes()) {
-    server.middlewares.use(async (req, res, next) => {
-      const requestUrl = req.url ?? '/'
-      const parsed = new URL(requestUrl, 'http://mokup.local')
-      if (parsed.pathname !== swPath) {
-        return next()
-      }
-      try {
-        const code = buildSwScript({
-          routes: state.swRoutes,
-          root,
-          basePaths: swConfig?.basePaths ?? [],
-          ...(typeof state.swModuleVersion !== 'undefined'
-            ? { moduleVersion: state.swModuleVersion }
-            : {}),
-        })
-        res.statusCode = 200
-        res.setHeader('Content-Type', 'application/javascript; charset=utf-8')
-        res.setHeader('Cache-Control', 'no-cache')
-        res.end(code)
-      }
-      catch (error) {
-        res.statusCode = 500
-        res.setHeader('Content-Type', 'text/plain; charset=utf-8')
-        res.end('Failed to generate mokup service worker.')
-        logger.error('SW generation failed:', error)
-      }
-    })
+  else {
+    if (mockMiddleware) {
+      addMiddlewareFirst(server, mockMiddleware)
+    }
+    addMiddlewareFirst(server, playgroundMiddleware)
   }
+  // Vite serves the bundled SW from its output directory. Raw source needs the dev transformer.
   if (!watchEnabled) {
     return null
   }
@@ -177,6 +159,7 @@ async function configurePreviewServer(params: {
     root,
     dirs,
     refresh: options => refreshRoutes(server, options),
+    onError: error => logger.error('Mock route refresh failed:', error),
   })
   return watcher
 }

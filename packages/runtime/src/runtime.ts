@@ -59,19 +59,22 @@ export async function createRuntimeApp(options: RuntimeOptions): Promise<Hono> {
  * })
  */
 export function createRuntime(options: RuntimeOptions) {
-  let manifestCache: Manifest | null = null
+  let manifestPromise: Promise<Manifest> | null = null
   let appPromise: Promise<Hono> | null = null
-  let compiledCache: CompiledRoute[] | null = null
+  let compiledPromise: Promise<CompiledRoute[]> | null = null
   const moduleCache = new Map<string, RuntimeRule[]>()
   const middlewareCache = new Map<string, MiddlewareHandler[]>()
 
-  const getManifest = async () => {
-    if (!manifestCache) {
-      manifestCache = typeof options.manifest === 'function'
-        ? await options.manifest()
-        : options.manifest
+  const getManifest = () => {
+    if (!manifestPromise) {
+      manifestPromise = Promise.resolve()
+        .then(() => typeof options.manifest === 'function' ? options.manifest() : options.manifest)
+        .catch((error: unknown) => {
+          manifestPromise = null
+          throw error
+        })
     }
-    return manifestCache
+    return manifestPromise
   }
 
   const getApp = async () => {
@@ -94,28 +97,38 @@ export function createRuntime(options: RuntimeOptions) {
     return appPromise
   }
 
-  const getCompiled = async () => {
-    if (!compiledCache) {
-      compiledCache = compileRoutes(await getManifest())
+  const getCompiled = () => {
+    if (!compiledPromise) {
+      compiledPromise = getManifest()
+        .then(compileRoutes)
+        .catch((error: unknown) => {
+          compiledPromise = null
+          throw error
+        })
     }
-    return compiledCache
+    return compiledPromise
+  }
+
+  const findMatchedRoute = async (req: Pick<RuntimeRequest, 'method' | 'path'>): Promise<ManifestRoute | null> => {
+    const method = normalizeMethod(req.method) ?? 'GET'
+    const matchMethods = method === 'HEAD' ? ['HEAD', 'GET'] : [method]
+    const pathname = normalizePathname(req.path)
+    const compiled = await getCompiled()
+    for (const matchMethod of matchMethods) {
+      const entry = compiled.find(entry => entry.method === matchMethod && matchRouteTokens(entry.tokens, pathname))
+      if (entry) {
+        return entry.route
+      }
+    }
+    return null
+  }
+
+  const hasRoute = async (req: Pick<RuntimeRequest, 'method' | 'path'>): Promise<boolean> => {
+    return await findMatchedRoute(req) !== null
   }
 
   const handle = async (req: RuntimeRequest): Promise<RuntimeResult | null> => {
-    const method = normalizeMethod(req.method) ?? 'GET'
-    const matchMethod = method === 'HEAD' ? 'GET' : method
-    const pathname = normalizePathname(req.path)
-    const compiled = await getCompiled()
-    let matchedRoute: ManifestRoute | null = null
-    for (const entry of compiled) {
-      if (entry.method !== matchMethod) {
-        continue
-      }
-      if (matchRouteTokens(entry.tokens, pathname)) {
-        matchedRoute = entry.route
-        break
-      }
-    }
+    const matchedRoute = await findMatchedRoute(req)
     if (!matchedRoute) {
       return null
     }
@@ -127,11 +140,13 @@ export function createRuntime(options: RuntimeOptions) {
     }
     const app = await getApp()
     const response = await app.fetch(toFetchRequest(req))
-    const resolvedResponse = applyRouteOverrides(response, matchedRoute)
+    const method = normalizeMethod(req.method) ?? 'GET'
+    const resolvedResponse = applyRouteOverrides(response, matchedRoute, method)
     return await toRuntimeResult(resolvedResponse)
   }
 
   return {
+    hasRoute,
     handle,
   }
 }

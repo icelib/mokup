@@ -186,7 +186,8 @@ describe('runtime handling', () => {
     })
 
     const defaultResult = await runtime.handle(createRequest('/module/42'))
-    const defaultBody = defaultResult?.body ? JSON.parse(String(defaultResult.body)) : null
+    expect(defaultResult?.body).toBeInstanceOf(Uint8Array)
+    const defaultBody = JSON.parse(new TextDecoder().decode(defaultResult?.body as Uint8Array))
     expect(defaultResult?.status).toBe(201)
     expect(defaultResult?.headers['content-type']).toBe('application/custom')
     expect(defaultResult?.headers['x-rule']).toBe('handler')

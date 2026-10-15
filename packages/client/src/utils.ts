@@ -3,6 +3,8 @@ export type HeaderRecord = Record<string, string>
 export const truthyValues = new Set(['1', 'true', 'yes', 'on', 'mock'])
 export const falsyValues = new Set(['0', 'false', 'no', 'off', 'real'])
 const ABSOLUTE_URL_RE = /^[a-z][a-z\d+.-]*:/i
+const PROTOCOL_RELATIVE_ORIGIN_RE = /^\/\/[/\\]*[^/\\?#]+/
+const AUTHORITY_PORT_RE = /:(\d+)$/
 const TRAILING_SLASH_RE = /\/$/
 
 export function parseBoolean(value: unknown): boolean | undefined {
@@ -41,8 +43,19 @@ export function normalizeHeaders(input?: HeadersInit | null): HeaderRecord {
     return record
   }
   if (Array.isArray(input)) {
+    if (typeof Headers !== 'undefined') {
+      const headers = new Headers(input)
+      headers.forEach((value, key) => {
+        record[key] = value
+      })
+      return record
+    }
     for (const [key, value] of input) {
-      record[String(key).toLowerCase()] = String(value)
+      const normalizedKey = String(key).toLowerCase()
+      const normalizedValue = String(value)
+      record[normalizedKey] = Object.hasOwn(record, normalizedKey)
+        ? `${record[normalizedKey]}, ${normalizedValue}`
+        : normalizedValue
     }
     return record
   }
@@ -127,13 +140,17 @@ export interface ParsedUrl {
 }
 
 export function parseUrl(url: string): ParsedUrl {
-  if (isAbsoluteUrl(url)) {
+  const protocolRelativeOrigin = url.match(PROTOCOL_RELATIVE_ORIGIN_RE)?.[0]
+  if (protocolRelativeOrigin || isAbsoluteUrl(url)) {
     try {
-      const parsed = new URL(url)
+      const parsed = new URL(protocolRelativeOrigin ? `http:${url}` : url)
+      const explicitPort = protocolRelativeOrigin?.match(AUTHORITY_PORT_RE)?.[1]
       return {
         isAbsolute: true,
-        origin: parsed.origin,
-        host: parsed.host,
+        origin: protocolRelativeOrigin ?? parsed.origin,
+        host: protocolRelativeOrigin
+          ? `${parsed.hostname}${explicitPort ? `:${Number(explicitPort)}` : ''}`
+          : parsed.host,
         pathname: parsed.pathname,
         search: parsed.search,
         hash: parsed.hash,

@@ -1,9 +1,10 @@
 import type { Manifest } from '@mokup/runtime'
 import type { ResolvedRoute } from '../src/shared/types'
 import path from 'node:path'
+import { runInNewContext } from 'node:vm'
 import { buildSwScript, resolveSwConfig, resolveSwUnregisterConfig } from '@mokup/core'
 import { parseRouteTemplate } from '@mokup/runtime'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 function extractManifest(code: string): Manifest {
   const marker = 'const manifest = '
@@ -25,6 +26,48 @@ function createLogger(warnings: string[]) {
 }
 
 describe('mokup SW', () => {
+  it('registers the fetch listener before asynchronous app construction finishes', async () => {
+    const appReady = Promise.withResolvers<{ fetch: (request: unknown, env: unknown, executionCtx: unknown) => Promise<Response> }>()
+    const listeners = new Map<string, (event: { request: Request, respondWith: (response: unknown) => void }) => void>()
+    const respondWith = vi.fn()
+    const code = buildSwScript({ routes: [], root: '/tmp/mokup-sw' })
+      .replace(
+        'import { createLogger } from "@mokup/shared/logger"',
+        'const createLogger = () => ({ error() {} })',
+      )
+      .replace(
+        'import { createRuntimeApp, handle } from "mokup/runtime"',
+        'const createRuntimeApp = mockCreateRuntimeApp; const handle = mockHandle',
+      )
+
+    runInNewContext(code, {
+      mockCreateRuntimeApp: () => appReady.promise,
+      mockHandle: (app: { fetch: (request: unknown, env: unknown, executionCtx: unknown) => Promise<Response> }) =>
+        (event: { request: Request, respondWith: (response: unknown) => void }) => {
+          event.respondWith(app.fetch(event.request, {}, event))
+        },
+      Promise,
+      Request,
+      Response,
+      self: {
+        addEventListener(type: string, listener: (event: { request: Request, respondWith: (response: unknown) => void }) => void) {
+          listeners.set(type, listener)
+        },
+        skipWaiting() {},
+        clients: { claim() {} },
+      },
+    })
+
+    const fetchListener = listeners.get('fetch')
+    expect(fetchListener).toBeDefined()
+    fetchListener?.({ request: new Request('https://mokup.test/api/health'), respondWith })
+    expect(respondWith).toHaveBeenCalledOnce()
+
+    const response = new Response('mocked')
+    appReady.resolve({ fetch: async () => response })
+    await expect(respondWith.mock.calls[0]?.[0]).resolves.toBe(response)
+  })
+
   it('builds module-based SW routes with middleware refs', () => {
     const root = path.join('/tmp', 'mokup-sw')
     const file = path.join(root, 'mock', 'users.get.ts')
@@ -139,7 +182,7 @@ describe('mokup SW', () => {
       resolveModulePath: () => '/abs/mock/users.get.ts',
     })
 
-    expect(code).toContain('import * as module0 from \'/abs/mock/users.get.ts\'')
+    expect(code).toContain('import * as module0 from "/abs/mock/users.get.ts"')
   })
 
   it('appends module version query for SW hot updates', () => {
@@ -162,7 +205,7 @@ describe('mokup SW', () => {
       resolveModulePath: () => '/abs/mock/users.get.ts',
     })
 
-    expect(code).toContain('import * as module0 from \'/abs/mock/users.get.ts?mokupv=7\'')
+    expect(code).toContain('import * as module0 from "/abs/mock/users.get.ts?mokupv=7"')
   })
 
   it('uses defaults when SW config is missing overrides', () => {

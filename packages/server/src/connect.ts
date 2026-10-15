@@ -5,8 +5,8 @@ import { createRuntime } from '@mokup/runtime'
 import {
   applyRuntimeResultToNode,
   toRuntimeOptions,
-  toRuntimeRequestFromNode,
 } from './internal'
+import { handleNodeRequest } from './internal/handle-request'
 
 type NextFunction = (error?: unknown) => void
 
@@ -32,17 +32,22 @@ export function createConnectMiddleware(
     res: NodeResponseLike,
     next: NextFunction,
   ) => {
-    const runtimeRequest = await toRuntimeRequestFromNode(req)
-    const result = await runtime.handle(runtimeRequest)
-    if (!result) {
+    try {
+      const result = await handleNodeRequest(runtime, req)
+      if (result) {
+        applyRuntimeResultToNode(res, result)
+        return
+      }
       if (onNotFound === 'response') {
         res.statusCode = 404
         res.end()
         return
       }
-      next()
+    }
+    catch (error) {
+      next(error)
       return
     }
-    applyRuntimeResultToNode(res, result)
+    next()
   }
 }

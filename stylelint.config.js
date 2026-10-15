@@ -1,3 +1,3 @@
-import { icebreaker } from '@icebreakers/stylelint-config'
+import { defineStylelintConfig } from 'repoctl/tooling'
 
-export default icebreaker()
+export default await defineStylelintConfig()

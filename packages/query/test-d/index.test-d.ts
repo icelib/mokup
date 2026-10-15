@@ -1,8 +1,8 @@
-/* eslint-disable antfu/no-import-dist */
 import type {
   AxiosExecutorOptions,
   BuildMutationRequest,
   BuildRequest,
+  FetchExecutorOptions,
   MokupQueryOptions,
   MutationFunction,
   QueryClientLike,
@@ -10,14 +10,16 @@ import type {
   QueryFunctionContext,
   QueryKey,
   RequestExecutor,
-} from '../dist/index.mjs'
-import { expectAssignable, expectType } from 'tsd'
+} from '@mokup/query'
 import {
   applyMokupToQueryClient,
   createAxiosExecutor,
   createFetchExecutor,
   createMokupQueryClient,
-} from '../dist/index.mjs'
+  MokupHttpError,
+} from '@mokup/query'
+import axios from 'axios'
+import { expectAssignable, expectError, expectType } from 'tsd'
 
 const queryKey = ['GET', '/users'] as const satisfies QueryKey
 const queryContext: QueryFunctionContext = {
@@ -40,6 +42,47 @@ const fetchExecutor = createFetchExecutor({
   },
 })
 expectType<RequestExecutor>(fetchExecutor)
+expectType<Promise<unknown>>(fetchExecutor({
+  url: '/users',
+  method: 'POST',
+  body: { name: 'Ada' },
+}, { signal: new AbortController().signal }))
+
+const response = new Response(null, { status: 404, statusText: 'Not Found' })
+const httpError = new MokupHttpError(response)
+expectType<MokupHttpError>(httpError)
+expectAssignable<Error>(httpError)
+expectType<Response>(httpError.response)
+expectType<number>(httpError.status)
+expectType<string>(httpError.statusText)
+expectAssignable<string>(httpError.name)
+expectType<Promise<string>>(httpError.response.text())
+expectError(httpError.response = response)
+expectError(httpError.status = 500)
+expectError(httpError.statusText = 'Internal Server Error')
+expectError(new MokupHttpError({ status: 404 }))
+
+declare const unknownError: unknown
+if (unknownError instanceof MokupHttpError) {
+  expectType<MokupHttpError>(unknownError)
+  expectType<Response>(unknownError.response)
+}
+
+const fetchOptions: FetchExecutorOptions = {
+  async transformResponse(response) {
+    expectType<Response>(response)
+    return { status: response.status, body: await response.text() }
+  },
+}
+expectType<RequestExecutor>(createFetchExecutor(fetchOptions))
+
+const transformedQueryOptions: MokupQueryOptions = {
+  async transformResponse(response) {
+    expectType<Response>(response)
+    return response.status === 404 ? null : response.text()
+  },
+}
+expectAssignable<QueryFunction>(createMokupQueryClient(transformedQueryOptions).queryFn)
 
 const axiosExecutorOptions: AxiosExecutorOptions = {
   axios: {
@@ -48,6 +91,10 @@ const axiosExecutorOptions: AxiosExecutorOptions = {
 }
 const axiosExecutor = createAxiosExecutor(axiosExecutorOptions)
 expectType<RequestExecutor>(axiosExecutor)
+
+expectType<RequestExecutor>(createAxiosExecutor({
+  axios: axios.create({ baseURL: 'https://api.example.com/api/v1', allowAbsoluteUrls: false }),
+}))
 
 const buildRequest: BuildRequest = key => ({
   url: String(key[1] ?? '/users'),
@@ -80,3 +127,4 @@ const queryClient: QueryClientLike = {
 
 const applied = applyMokupToQueryClient(queryClient, queryOptions)
 expectType<typeof mokup>(applied)
+expectType<typeof mokup>(applyMokupToQueryClient(queryClient, transformedQueryOptions))

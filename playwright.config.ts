@@ -17,6 +17,7 @@ export default defineConfig({
   use: {
     browserName: 'chromium',
     channel: 'chrome',
+    headless: true,
     baseURL: webBaseURL,
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
@@ -39,7 +40,7 @@ export default defineConfig({
     },
     {
       name: 'playground',
-      testMatch: /playground\.spec\.ts/,
+      testMatch: ['**/playground.spec.ts', '**/playground-preview.spec.ts', '**/playground-copy.spec.ts'],
       use: {
         baseURL: webBaseURL,
       },
@@ -53,7 +54,7 @@ export default defineConfig({
     },
     {
       name: 'cli',
-      testMatch: /cli\.spec\.ts/,
+      testMatch: /cli(?:-check)?\.spec\.ts/,
     },
     {
       name: 'adapters',
@@ -62,6 +63,10 @@ export default defineConfig({
     {
       name: 'worker',
       testMatch: /worker\.spec\.ts/,
+    },
+    {
+      name: 'service-worker',
+      testMatch: /service-worker-(?:update|empty|preview|playground)\.spec\.ts/,
     },
   ],
   globalSetup: './tests/e2e/global-setup.ts',

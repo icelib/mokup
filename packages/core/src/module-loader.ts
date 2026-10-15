@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url'
 
 import { createTsxConfigFile, loadModule as loadModuleShared } from '@mokup/shared/module-loader'
 import { dirname, relative, resolve } from '@mokup/shared/pathe'
+import { loadViteModule } from './vite-module-loader'
 
 const sourceRoot = dirname(fileURLToPath(import.meta.url))
 const packageRoot = resolve(sourceRoot, '..')
@@ -93,38 +94,11 @@ async function loadModule(file: string) {
   return loadModuleShared(file, { tsconfigPath: tsxConfigPath })
 }
 
-function invalidateViteModules(server: ViteDevServer, file: string) {
-  const graph = server.moduleGraph
-  const nodes = new Set<Parameters<typeof graph.invalidateModule>[0]>()
-
-  const byId = graph.getModuleById(file)
-  if (byId) {
-    nodes.add(byId)
-  }
-
-  const withFileLookup = graph as typeof graph & {
-    getModulesByFile?: (file: string) => Set<Parameters<typeof graph.invalidateModule>[0]> | undefined
-  }
-  const byFile = withFileLookup.getModulesByFile?.(file)
-  if (byFile) {
-    for (const node of byFile) {
-      nodes.add(node)
-    }
-  }
-
-  for (const node of nodes) {
-    graph.invalidateModule(node)
-  }
-}
-
 async function loadModuleWithVite(server: ViteDevServer | PreviewServer, file: string) {
   const asDevServer = server as ViteDevServer
   if ('ssrLoadModule' in asDevServer) {
-    invalidateViteModules(asDevServer, file)
-    const stamp = Date.now()
-    const requestId = `${file}${file.includes('?') ? '&' : '?'}mokupv=${stamp}`
     try {
-      return await asDevServer.ssrLoadModule(requestId)
+      return await loadViteModule(asDevServer, file)
     }
     catch (error) {
       const message = error instanceof Error ? error.message : String(error)

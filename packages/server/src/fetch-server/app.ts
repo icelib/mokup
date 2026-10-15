@@ -5,6 +5,7 @@ import type { Logger, MiddlewareHandler, ResolvedRoute, RouteTable } from '../de
 import { Hono as HonoApp } from '@mokup/shared/hono'
 import { createHonoApp } from '../dev/hono'
 import { registerPlaygroundRoutes } from '../dev/playground'
+import { normalizePlaygroundPath } from '../dev/playground/config'
 
 type PlaygroundWsHandler = MiddlewareHandler<any, string, { outputFormat: 'ws' }>
 
@@ -23,7 +24,9 @@ function buildFetchServerApp(params: {
 }): Hono {
   const app = new HonoApp({ strict: false })
   if (params.wsHandler && params.playground.enabled) {
-    app.get(`${params.playground.path}/ws`, params.wsHandler)
+    const playgroundPath = normalizePlaygroundPath(params.playground.path)
+    const routePrefix = playgroundPath === '/' ? '' : playgroundPath
+    app.get(`${routePrefix}/ws`, params.wsHandler)
   }
   registerPlaygroundRoutes({
     app,

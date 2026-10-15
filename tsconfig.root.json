@@ -48,7 +48,7 @@
   },
   "include": [
     "commitlint.config.ts",
-    "monorepo.config.ts",
+    "repoctl.config.ts",
     "playwright.config.ts",
     "vitest.config.ts",
     "tests/e2e/**/*.ts"

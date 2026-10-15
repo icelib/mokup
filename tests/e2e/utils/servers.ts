@@ -5,6 +5,7 @@ import { isAbsolute, join, resolve } from 'node:path'
 import process from 'node:process'
 import { WEB_HOST, WEB_PORT } from '../constants'
 import { isPortOpen, waitForHttp } from './net'
+import { stopProcess } from './process.mjs'
 
 export interface RunningServer {
   name: string
@@ -15,19 +16,6 @@ export interface RunningServer {
 interface ServerCommand {
   command: string
   args: string[]
-}
-
-function waitForChildProcess(child: ChildProcess) {
-  return new Promise<void>((resolve, reject) => {
-    child.once('error', reject)
-    child.once('exit', (code, signal) => {
-      if (code === 0 || signal === 'SIGTERM' || signal === 'SIGKILL') {
-        resolve()
-        return
-      }
-      reject(new Error(`Process exited with code ${String(code)} and signal ${String(signal)}`))
-    })
-  })
 }
 
 function formatServerLabel(params: {
@@ -134,8 +122,11 @@ export async function startViteServer(params?: {
     ])
   }
   catch (error) {
-    if (!child.killed && child.exitCode === null) {
-      child.kill('SIGTERM')
+    try {
+      await stopProcess(child)
+    }
+    catch (cleanupError) {
+      throw new AggregateError([error, cleanupError], `Dev server startup and cleanup failed (${label})`)
     }
     throw error
   }
@@ -148,24 +139,16 @@ export async function startViteServer(params?: {
 }
 
 export async function stopServers(servers: RunningServer[]) {
-  await Promise.all(servers.map(async (server) => {
-    if (server.process.killed || server.process.exitCode !== null) {
-      return
-    }
-    server.process.kill('SIGTERM')
-    const killTimer = setTimeout(() => {
-      if (!server.process.killed && server.process.exitCode === null) {
-        server.process.kill('SIGKILL')
-      }
-    }, 5_000)
+  const results = await Promise.allSettled(servers.map(async (server) => {
     try {
-      await waitForChildProcess(server.process)
+      await stopProcess(server.process)
     }
-    catch {
-      // ignore termination errors
-    }
-    finally {
-      clearTimeout(killTimer)
+    catch (error) {
+      throw new Error(`Failed to stop dev server ${server.name} (${server.url})`, { cause: error })
     }
   }))
+  const errors = results.flatMap(result => result.status === 'rejected' ? [result.reason] : [])
+  if (errors.length) {
+    throw new AggregateError(errors, 'Failed to stop all dev servers')
+  }
 }

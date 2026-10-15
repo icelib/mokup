@@ -80,6 +80,7 @@ describe('loadRules with Vite server', () => {
       const moduleNode = { id: file }
       const server = {
         moduleGraph: {
+          resolveUrl: vi.fn().mockImplementation(async (id: string) => [id, moduleNode.id]),
           getModuleById: vi.fn().mockReturnValue(moduleNode),
           invalidateModule: vi.fn(),
         },
@@ -89,7 +90,7 @@ describe('loadRules with Vite server', () => {
       const rules = await loadRules(file, server as never, logger)
       expect(rules).toEqual([{ handler: { ok: true } }])
       expect(server.moduleGraph.invalidateModule).toHaveBeenCalledWith(moduleNode)
-      expect(server.ssrLoadModule).toHaveBeenCalledWith(expect.stringMatching(/rules\.js\?mokupv=\d+$/))
+      expect(server.ssrLoadModule).toHaveBeenCalledWith(server.moduleGraph.resolveUrl.mock.calls[0]?.[0])
     }
     finally {
       await fs.rm(root, { recursive: true, force: true })

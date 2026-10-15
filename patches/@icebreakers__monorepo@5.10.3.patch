@@ -1,0 +1,40 @@
+diff --git a/dist/commands-CB-HD_yZ.mjs b/dist/commands-CB-HD_yZ.mjs
+--- a/dist/commands-CB-HD_yZ.mjs
++++ b/dist/commands-CB-HD_yZ.mjs
+@@ -5030,13 +5030,33 @@
+ 		await request("GET", `/git/ref/heads/${branch}`);
+ 	} catch (error) {
+ 		if (!missing(error)) throw error;
++		// The checkpoint branch stores release state without copying source workflows.
++		const { data: tree } = await request("POST", "/git/trees", {
++			tree: [{
++				path: ".repoctl-release/README.md",
++				mode: "100644",
++				type: "blob",
++				content: "# Release checkpoints\n\nManaged by repoctl. Package source commits are recorded in each checkpoint.\n"
++			}]
++		});
++		if (!tree?.sha) throw new ReleaseCommandError("GitHub returned no release state tree");
++		const { data: commit } = await request("POST", "/git/commits", {
++			message: "chore(release): initialize release checkpoints [skip ci]",
++			tree: tree.sha,
++			parents: []
++		});
++		if (!commit?.sha) throw new ReleaseCommandError("GitHub returned no release state commit");
+ 		try {
+ 			await request("POST", "/git/refs", {
+ 				ref: `refs/heads/${branch}`,
+-				sha: state.packages[0]?.target
++				sha: commit.sha
+ 			});
+-		} catch {
+-			await request("GET", `/git/ref/heads/${branch}`);
++		} catch (creationError) {
++			try {
++				await request("GET", `/git/ref/heads/${branch}`);
++			} catch {
++				throw creationError;
++			}
+ 		}
+ 	}
+ 	const content = JSON.stringify(state);

@@ -1,5 +1,28 @@
 # @mokup/cli
 
+## 2.1.0
+
+### Minor Changes
+
+- Add `mokup check` and `checkManifest()` to validate mock routes without generating build artifacts or starting a server. Support strict diagnostics, structured JSON reports, and actionable failures for missing directories and invalid JSON mock files while preserving existing build behavior.
+
+### Patch Changes
+
+- Keep generated handler and middleware imports aligned with their bundled files when mock directories are outside the project root. Preserve separate outputs for sources with the same filename, retain existing paths for in-project handlers, and report conflicting output names instead of silently replacing an entry.
+
+- Escape generated module imports and handler map keys so paths containing quotes, backslashes, or line breaks preserve their identity in bundles, Service Workers, CLI handler indexes, and Playground HMR scripts.
+
+- Upgrade runtime dependencies, migrate Node WebSocket support to `@hono/node-server` 2, and add Vite 8 peer compatibility.
+
+- Update runtime dependencies and the shared build toolchain to current compatible releases, including stable Rolldown and Vite 8 support. Preserve the published packages' Node.js runtime requirement of `^20.19.0 || >=22.12.0`.
+
+  Migrate repository tooling and release management to repoctl and pnpm 12 native versioning. Development, builds, and CI use Node.js 24 LTS from 24.15.0; TypeScript remains on its latest compatible release line. Integrate the Hono Node server 2.x WebSocket migration while retaining the published Node.js runtime range.
+
+- Updated dependencies:
+  - @mokup/runtime@2.1.0
+  - @mokup/server@2.0.1
+  - @mokup/shared@2.0.1
+
 ## 2.0.0
 
 ### Major Changes

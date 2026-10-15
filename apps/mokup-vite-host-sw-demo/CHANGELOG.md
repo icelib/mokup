@@ -1,5 +1,12 @@
 # mokup-vite-host-sw-demo
 
+## 0.0.23
+
+### Patch Changes
+
+- Updated dependencies:
+  - mokup@3.1.0
+
 ## 0.0.22
 
 ### Patch Changes

@@ -12,10 +12,11 @@ import { createLogger } from './dev/logger'
 import { resolvePlaygroundOptions } from './dev/playground'
 import { sortRoutes } from './dev/routes'
 import { scanRoutes } from './dev/scanner'
-import { createDebouncer, resolveDirs } from './dev/utils'
+import { resolveDirs } from './dev/utils'
 import { buildFetchServerApp } from './fetch-server/app'
 import { normalizeOptions, resolveAllDirs, resolveRoot } from './fetch-server/options'
 import { createPlaygroundWs } from './fetch-server/playground-ws'
+import { createRefreshController } from './fetch-server/refresh-controller'
 import { createWatcher } from './fetch-server/watcher'
 
 const diagnosticErrorTitle = 'Mokup diagnostics error:'
@@ -51,7 +52,7 @@ export interface FetchServer {
   getRoutes: () => RouteTable
   /** WebSocket configuration for the Hono Node server adapter. */
   websocket?: { server: WebSocketServerLike }
-  /** Close any active watchers. */
+  /** Stop watching and drain pending refresh work; explicit refresh remains available. */
   close?: () => Promise<void>
 }
 
@@ -82,16 +83,12 @@ export async function createFetchServer(
   await playgroundWs.setupPlaygroundWebSocket()
 
   let routes: RouteTable = []
-  let disabledRoutes: RouteSkipInfo[] = []
-  let ignoredRoutes: RouteIgnoreInfo[] = []
-  let configFiles: RouteConfigInfo[] = []
-  let disabledConfigFiles: RouteConfigInfo[] = []
   const appParams: Parameters<typeof buildFetchServerApp>[0] = {
     routes,
-    disabledRoutes,
-    ignoredRoutes,
-    configFiles,
-    disabledConfigFiles,
+    disabledRoutes: [],
+    ignoredRoutes: [],
+    configFiles: [],
+    disabledConfigFiles: [],
     dirs,
     playground: playgroundConfig,
     root,
@@ -170,19 +167,14 @@ export async function createFetchServer(
         throw diagnosticError
       }
       const resolvedRoutes = sortRoutes(collected)
-      routes = resolvedRoutes
-      disabledRoutes = collectedDisabled
-      ignoredRoutes = collectedIgnored
       const configMap = new Map(collectedConfigs.map(entry => [entry.file, entry]))
       const resolvedConfigs = Array.from(configMap.values())
-      configFiles = resolvedConfigs.filter(entry => entry.enabled)
-      disabledConfigFiles = resolvedConfigs.filter(entry => !entry.enabled)
       const refreshedParams: Parameters<typeof buildFetchServerApp>[0] = {
-        routes,
-        disabledRoutes,
-        ignoredRoutes,
-        configFiles,
-        disabledConfigFiles,
+        routes: resolvedRoutes,
+        disabledRoutes: collectedDisabled,
+        ignoredRoutes: collectedIgnored,
+        configFiles: resolvedConfigs.filter(entry => entry.enabled),
+        disabledConfigFiles: resolvedConfigs.filter(entry => !entry.enabled),
         dirs,
         playground: playgroundConfig,
         root,
@@ -193,7 +185,9 @@ export async function createFetchServer(
       if (refreshedWsHandler) {
         refreshedParams.wsHandler = refreshedWsHandler
       }
-      app = buildFetchServerApp(refreshedParams)
+      const refreshedApp = buildFetchServerApp(refreshedParams)
+      routes = resolvedRoutes
+      app = refreshedApp
       logger.info(`Loaded ${routes.length} mock routes.`)
     }
     catch (error) {
@@ -208,15 +202,15 @@ export async function createFetchServer(
     }
   }
 
-  await refreshRoutes({ throwOnError: true })
-
-  const scheduleRefresh = createDebouncer(80, () => {
-    void refreshRoutes()
-  })
+  const refreshController = createRefreshController(
+    refreshRoutes,
+    error => logger.error('Failed to refresh mock routes:', error),
+  )
+  await refreshController.refresh()
   const watcher = await createWatcher({
     enabled: watchEnabled,
     dirs,
-    onChange: scheduleRefresh,
+    onChange: refreshController.schedule,
     logger,
   })
 
@@ -226,7 +220,7 @@ export async function createFetchServer(
 
   const server: FetchServer = {
     fetch,
-    refresh: async () => await refreshRoutes({ throwOnError: true }),
+    refresh: refreshController.refresh,
     getRoutes: () => routes,
   }
   const websocket = playgroundWs.getWebSocketOptions()
@@ -235,8 +229,20 @@ export async function createFetchServer(
   }
 
   if (watcher) {
-    server.close = async () => {
-      await watcher.close()
+    let closePromise: Promise<void> | undefined
+    server.close = () => {
+      if (!closePromise) {
+        const drain = refreshController.stopWatching()
+        closePromise = Promise.resolve().then(async () => {
+          try {
+            await watcher.close()
+          }
+          finally {
+            await drain
+          }
+        })
+      }
+      return closePromise
     }
   }
 

@@ -10,25 +10,6 @@ interface CompiledRoute {
   score: number[]
 }
 
-function toHonoPath(tokens: RouteToken[]) {
-  if (!tokens || tokens.length === 0) {
-    return '/'
-  }
-  const segments = tokens.map((token) => {
-    if (token.type === 'static') {
-      return token.value
-    }
-    if (token.type === 'param') {
-      return `:${token.name}`
-    }
-    if (token.type === 'catchall') {
-      return `:${token.name}{.+}`
-    }
-    return `:${token.name}{.+}?`
-  })
-  return `/${segments.join('/')}`
-}
-
 function compileRoutes(manifest: Manifest): CompiledRoute[] {
   const compiled: CompiledRoute[] = []
   for (const route of manifest.routes) {
@@ -59,4 +40,4 @@ function compileRoutes(manifest: Manifest): CompiledRoute[] {
 }
 
 export type { CompiledRoute }
-export { compileRoutes, toHonoPath }
+export { compileRoutes }

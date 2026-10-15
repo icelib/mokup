@@ -47,8 +47,8 @@ describe('mokup bundle module', () => {
     const manifest = extractManifest(code)
     const manifestRoute = manifest.routes[0]
 
-    expect(code).toContain('import * as module0 from \'/mock/users.get.ts\'')
-    expect(code).toContain('import * as module1 from \'/mock/index.config.ts\'')
+    expect(code).toContain('import * as module0 from "/mock/users.get.ts"')
+    expect(code).toContain('import * as module1 from "/mock/index.config.ts"')
     expect(manifestRoute?.response.type).toBe('module')
     if (!manifestRoute || manifestRoute.response.type !== 'module') {
       throw new Error('Expected module response')
@@ -112,6 +112,6 @@ describe('mokup bundle module', () => {
       resolveModulePath: () => '/abs/mock/users.get.ts',
     })
 
-    expect(code).toContain('import * as module0 from \'/abs/mock/users.get.ts\'')
+    expect(code).toContain('import * as module0 from "/abs/mock/users.get.ts"')
   })
 })

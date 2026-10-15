@@ -1,5 +1,3 @@
-/* eslint-disable antfu/no-import-dist */
-import type { Hono } from '@mokup/shared/hono'
 import type {
   Manifest,
   ManifestRoute,
@@ -7,8 +5,8 @@ import type {
   RuntimeOptions,
   RuntimeRequest,
   RuntimeResult,
-} from '../dist/index.mjs'
-import { expectAssignable, expectType } from 'tsd'
+} from '@mokup/runtime'
+import type { Hono } from '@mokup/shared/hono'
 import {
   createRuntime,
   createRuntimeApp,
@@ -16,7 +14,8 @@ import {
   normalizePathname,
   parseRouteTemplate,
   scoreRouteTokens,
-} from '../dist/index.mjs'
+} from '@mokup/runtime'
+import { expectAssignable, expectType } from 'tsd'
 
 const manifest: Manifest = {
   version: 1,
@@ -29,6 +28,8 @@ const options: RuntimeOptions = {
 
 const runtime = createRuntime(options)
 expectType<(req: RuntimeRequest) => Promise<RuntimeResult | null>>(runtime.handle)
+expectType<(req: Pick<RuntimeRequest, 'method' | 'path'>) => Promise<boolean>>(runtime.hasRoute)
+expectType<Promise<boolean>>(runtime.hasRoute({ method: 'POST', path: '/api/ping' }))
 
 const appPromise = createRuntimeApp(options)
 expectType<Promise<Hono>>(appPromise)

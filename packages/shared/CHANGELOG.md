@@ -1,5 +1,35 @@
 # @mokup/shared
 
+## 2.0.1
+
+### Patch Changes
+
+- Apply 204, 205, and 304 route status overrides without attempting to construct an invalid Fetch response with a body. Cancel discarded response streams, remove payload framing headers from 204 and 205 responses, and retain representation metadata on 304 responses.
+
+- Keep generated handler and middleware imports aligned with their bundled files when mock directories are outside the project root. Preserve separate outputs for sources with the same filename, retain existing paths for in-project handlers, and report conflicting output names instead of silently replacing an entry.
+
+- Execute explicit HEAD routes before falling back to GET across development servers, Connect middleware, Fetch runtimes, and Service Workers. Preserve middleware, response hooks, route parameters, and mounted Hono error handlers while keeping HEAD responses bodyless and HEAD-only routes available for GET fallthrough. Cancel discarded HEAD response streams without losing representation headers such as Content-Length.
+
+- Preserve Mokup route grammar when registering Hono routes. Numeric, hyphenated, and repeated parameter names no longer break routing, and static colons, wildcards, braces, and pipes match literally. Keep original parameter names available to middleware, mounted apps, and error handlers.
+
+- Upgrade runtime dependencies, migrate Node WebSocket support to `@hono/node-server` 2, and add Vite 8 peer compatibility.
+
+- Reload native ESM JavaScript and TypeScript entries independently of clock timing, and refresh CommonJS entries accessed through symbolic links using their resolved module identity.
+
+  Document that native entry refresh preserves cached helper and shared dependency modules, whose changes may require restarting the native server. Vite dev continues to use its module graph invalidation.
+
+- Load and refresh native TypeScript mock and configuration entries in CommonJS and default package scopes with their original exports. Preserve cached dependencies and lazy TypeScript imports, while retaining ESM top-level await and the existing process-wide tsconfig behavior.
+
+- Match global and sticky include/exclude regular expressions independently for each path, preserving the caller's lastIndex so repeated route scans return consistent results.
+
+- Guard request stream failures while adapters await asynchronous route matching, without consuming the body. Preserve original stream errors, reject premature closure, and handle queued destruction errors when handing the request to its next owner.
+
+- Settle request body reads for streams that have already ended or closed, propagate stream errors, and release body buffers and owned listeners when reading finishes.
+
+- Update runtime dependencies and the shared build toolchain to current compatible releases, including stable Rolldown and Vite 8 support. Preserve the published packages' Node.js runtime requirement of `^20.19.0 || >=22.12.0`.
+
+  Migrate repository tooling and release management to repoctl and pnpm 12 native versioning. Development, builds, and CI use Node.js 24 LTS from 24.15.0; TypeScript remains on its latest compatible release line. Integrate the Hono Node server 2.x WebSocket migration while retaining the published Node.js runtime range.
+
 ## 2.0.0
 
 ### Major Changes

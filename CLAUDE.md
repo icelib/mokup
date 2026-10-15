@@ -20,10 +20,12 @@ This is the `mokup` pnpm + Turbo monorepo. **Deployable apps and demos** live un
 
 ### Build System
 
-- **Package Manager**: pnpm (enforced by preinstall hook, requires pnpm@10.26.1)
+- **Package Manager**: pnpm 12.8.1, pinned in root `package.json`
 - **Task Orchestration**: Turbo with caching and parallel execution
 - **Library Bundler**: tsdown powered by Rolldown
-- **Node Version**: `^20.19.0 || >=22.12.0`
+- **Shared Tooling**: repoctl, configured in `repoctl.config.ts` through `repoctl/tooling` wrappers
+- **Development Node Version**: Node.js 24 LTS, at least 24.15.0 within the 24.x line
+- **Published Package Runtime**: `^20.19.0 || >=22.12.0`
 
 ## Development Commands
 
@@ -43,26 +45,29 @@ This is the `mokup` pnpm + Turbo monorepo. **Deployable apps and demos** live un
 
 ### Release & Publishing
 
-| Command                 | Description                                              |
-| ----------------------- | -------------------------------------------------------- |
-| `pnpm changeset`        | Create an interactive changeset for version bumps        |
-| `pnpm publish-packages` | Build, lint, test, version, and publish changed packages |
+| Command                                 | Description                                           |
+| --------------------------------------- | ----------------------------------------------------- |
+| `pnpm change`                           | Create a release intent for affected packages         |
+| `pnpm exec repo release plan`           | Preview the pending release                           |
+| `pnpm run release:check`                | Run the repository release checks                     |
+| `pnpm exec repo release stable publish` | Publish an intentional stable release through repoctl |
 
-### Monorepo Helper Scripts
+### Repository Maintenance
 
-| Command              | Description                                                  |
-| -------------------- | ------------------------------------------------------------ |
-| `pnpm script:init`   | Initialize template settings                                 |
-| `pnpm script:sync`   | Synchronize dependency and script versions across workspaces |
-| `pnpm script:clean`  | Remove sample packages and generated artifacts               |
-| `pnpm script:mirror` | Mirror configurations across workspaces                      |
+| Command                          | Description                                                |
+| -------------------------------- | ---------------------------------------------------------- |
+| `pnpm exec repo init`            | Initialize repoctl workspace settings                      |
+| `pnpm exec repo doctor`          | Inspect workspace health and configuration                 |
+| `pnpm exec repo check --dry-run` | Preview workspace checks                                   |
+| `pnpm exec repo clean`           | Delete selected workspace package directories after review |
+
+Use `repo clean` only when intentionally removing workspace packages.
 
 ### Git & Committing
 
-| Command                  | Description                                               |
-| ------------------------ | --------------------------------------------------------- |
-| `pnpm commit`            | Interactive commit prompt (enforces Conventional Commits) |
-| `pnpm commitlint --edit` | Validate commit message (runs as hook)                    |
+| Command                  | Description                            |
+| ------------------------ | -------------------------------------- |
+| `pnpm commitlint --edit` | Validate commit message (runs as hook) |
 
 ## Code Organization
 
@@ -76,7 +81,7 @@ Each app manages its own public assets (e.g., `public/`, `worker/`) to keep depl
 
 ### Workspace Dependencies
 
-Workspaces use `workspace:*` protocol for internal dependencies. Root `package.json` contains shared devDependencies that are inherited by workspaces.
+Workspaces use `workspace:*` protocol for internal dependencies. Root `package.json` contains shared devDependencies. Shared external versions use `catalog:` references to `pnpm-workspace.yaml`, which also owns overrides and installation settings. `.npmrc` is reserved for registry and authentication settings.
 
 ## Coding Conventions
 
@@ -88,22 +93,23 @@ Workspaces use `workspace:*` protocol for internal dependencies. Root `package.j
 
 ## Quality & Standards
 
-- **ESLint**: `@icebreakers/eslint-config` - auto-fixes staged files via lint-staged
-- **Stylelint**: `@icebreakers/stylelint-config` for CSS/SCSS
+- **ESLint and Stylelint**: repoctl tooling wrappers, with repository settings in `repoctl.config.ts`
 - **Testing**: Vitest with v8 coverage (reports to `coverage/`)
 - **Commits**: Conventional Commits required (enforced by commitlint + Husky)
-- **Pre-commit Hooks**: Husky + lint-staged run `eslint --fix`, tests, and other checks
+- **Pre-commit Hooks**: Husky + the repoctl lint-staged configuration
 
 ## Publishing Workflow
 
-This monorepo uses Changesets for version management:
+This monorepo uses pnpm 12 native versioning and repoctl for releases:
 
 1. Make changes to packages
-2. Run `pnpm changeset` to describe changes (patch/minor/major)
-3. After merging, run `pnpm publish-packages` locally or let CI publish from `main`
-4. Ensure `secrets.NPM_TOKEN` is configured in GitHub for automated publishing
+2. Run `pnpm change` to record release intents (patch/minor/major) under `.changeset/`
+3. Preview the release with `pnpm exec repo release plan` and run `pnpm run release:check`
+4. Let the release workflow prepare and publish the release, or explicitly run `pnpm exec repo release stable publish` for a manual stable release
 
-When modifying publishable packages, always create a changeset so releases stay traceable.
+When modifying publishable packages, always create a release intent so releases stay traceable. Repository changelogs are managed by pnpm native versioning. Dependency maintenance must leave versions unchanged and must not publish packages.
+
+Prerelease commands are `pnpm exec repo release pre enter <tag>`, `pnpm exec repo release pre publish`, and `pnpm exec repo release pre exit`.
 
 ## Current Upgrade Notes
 

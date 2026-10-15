@@ -10,8 +10,8 @@ import { promisify } from 'node:util'
 
 const execFileAsync = promisify(execFile)
 const consumerDir = dirname(fileURLToPath(import.meta.url))
-const mockDir = join(consumerDir, 'mock')
-const outDir = join(consumerDir, '.mokup')
+const mockDir = join(consumerDir, 'packed-mock')
+const outDir = join(consumerDir, 'packed-output')
 const pingBody = { ok: true, source: 'packed-typescript' }
 
 async function checkImports() {

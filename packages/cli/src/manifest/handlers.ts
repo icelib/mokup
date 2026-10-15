@@ -1,15 +1,27 @@
 import type { ManifestResponse } from '@mokup/runtime'
 
 import { Buffer } from 'node:buffer'
+import { createHash } from 'node:crypto'
 import { promises as fs } from 'node:fs'
+import { dirname, extname, isAbsolute, join, relative, resolve } from 'node:path'
 
-import { dirname, extname, join, relative, resolve } from '@mokup/shared/pathe'
 import { build as rolldown } from '@mokup/shared/rolldown'
 
 import { toPosix } from './utils'
 
 function normalizeHandlerOutputPath(value: string) {
   return value.replaceAll('[', '_').replaceAll(']', '_')
+}
+
+function getHandlerEntryName(file: string, root: string) {
+  const relFromRoot = toPosix(relative(root, file))
+  if (relFromRoot === '..' || relFromRoot.startsWith('../') || isAbsolute(relFromRoot)) {
+    // Keep outside sources within the handler output, independent of scan order.
+    const identity = createHash('sha256').update(relFromRoot).digest('hex')
+    return `_external/${identity}`
+  }
+  const ext = extname(relFromRoot)
+  return normalizeHandlerOutputPath(relFromRoot.slice(0, relFromRoot.length - ext.length))
 }
 
 /**
@@ -63,12 +75,7 @@ export interface BuildResponseOptions {
  * const path = getHandlerModulePath('mock/ping.get.ts', '.mokup/mokup-handlers', process.cwd())
  */
 export function getHandlerModulePath(file: string, handlersDir: string, root: string) {
-  const relFromRoot = relative(root, file)
-  const ext = extname(relFromRoot)
-  const relNoExt = normalizeHandlerOutputPath(
-    `${relFromRoot.slice(0, relFromRoot.length - ext.length)}.mjs`,
-  )
-  const outputPath = join(handlersDir, relNoExt)
+  const outputPath = join(handlersDir, `${getHandlerEntryName(file, root)}.mjs`)
   const relFromOutDir = relative(dirname(handlersDir), outputPath)
   const normalized = toPosix(relFromOutDir)
   return normalized.startsWith('.') ? normalized : `./${normalized}`
@@ -103,7 +110,7 @@ export async function writeHandlerIndex(
     const relImport = toPosix(relative(handlersDir, absolutePath))
     const importPath = relImport.startsWith('.') ? relImport : `./${relImport}`
     const name = `module${index}`
-    imports.push(`import * as ${name} from '${importPath}'`)
+    imports.push(`import * as ${name} from ${JSON.stringify(importPath)}`)
     entries.push({ key: modulePath, name })
   })
 
@@ -111,7 +118,7 @@ export async function writeHandlerIndex(
     ...imports,
     '',
     'export const mokupModuleMap = {',
-    ...entries.map(entry => `  '${entry.key}': ${entry.name},`),
+    ...entries.map(entry => `  ${JSON.stringify(entry.key)}: ${entry.name},`),
     '}',
     '',
   ]
@@ -206,15 +213,24 @@ export function buildResponse(
  * await bundleHandlers(['mock/ping.get.ts'], process.cwd(), '.mokup/mokup-handlers')
  */
 export async function bundleHandlers(files: string[], root: string, handlersDir: string) {
+  const entryPoints = new Map<string, string>()
+  for (const file of files) {
+    const name = getHandlerEntryName(file, root)
+    const source = resolve(file)
+    const previous = entryPoints.get(name)
+    if (previous && relative(previous, source) !== '') {
+      throw new Error(`Handler output path collision for "${name}.mjs": "${previous}" and "${source}".`)
+    }
+    entryPoints.set(name, source)
+  }
   await rolldown({
-    entryPoints: files,
+    entryPoints: Object.fromEntries(entryPoints),
     bundle: true,
     format: 'esm',
     platform: 'neutral',
     target: 'es2020',
     outdir: handlersDir,
-    outbase: root,
-    entryNames: '[dir]/[name]',
+    entryNames: '[name]',
     outExtension: { '.js': '.mjs' },
     logLevel: 'silent',
   })

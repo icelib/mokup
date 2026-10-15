@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { compileRoutes, toHonoPath } from '../src/runtime/routes'
+import { compileRoutes } from '../src/runtime/routes'
 
 const baseResponse = { type: 'text', body: 'ok' } as const
 
@@ -27,16 +27,5 @@ describe('runtime route compilation', () => {
     expect(compiled.some(entry => entry.method === 'GET')).toBe(true)
     expect(compiled.some(entry => entry.method === 'POST')).toBe(true)
     expect(compiled.some(entry => entry.route.url === '/fallback' && entry.method === 'GET')).toBe(true)
-  })
-
-  it('builds hono paths from tokens', () => {
-    expect(toHonoPath([])).toBe('/')
-    const path = toHonoPath([
-      { type: 'static', value: 'users' },
-      { type: 'param', name: 'id' },
-      { type: 'catchall', name: 'rest' },
-      { type: 'optional-catchall', name: 'opt' },
-    ])
-    expect(path).toBe('/users/:id/:rest{.+}/:opt{.+}?')
   })
 })

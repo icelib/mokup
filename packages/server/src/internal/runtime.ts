@@ -2,6 +2,7 @@ import type { RuntimeOptions, RuntimeResult } from '@mokup/runtime'
 import type { ServerOptions } from '../types'
 import type { NodeResponseLike } from './types'
 import { toBinaryBody } from './body'
+import { resolveResponseHeaders } from './response-headers'
 
 /**
  * Convert server adapter options to runtime options.
@@ -49,8 +50,18 @@ export function applyRuntimeResultToNode(
   result: RuntimeResult,
 ) {
   res.statusCode = result.status
-  for (const [key, value] of Object.entries(result.headers)) {
+  const { headers, setCookies } = res.appendHeader
+    ? resolveResponseHeaders(result)
+    : { headers: result.headers, setCookies: [] }
+  for (const [key, value] of Object.entries(headers)) {
     res.setHeader(key, value)
+  }
+  const [firstCookie, ...additionalCookies] = setCookies
+  if (firstCookie !== undefined) {
+    res.setHeader('set-cookie', firstCookie)
+    for (const cookie of additionalCookies) {
+      res.appendHeader?.('set-cookie', cookie)
+    }
   }
   if (result.body === null) {
     res.end()

@@ -1,4 +1,4 @@
-import type { DiagnosticErrorMode } from '@mokup/shared'
+import type { DiagnosticCategory, DiagnosticErrorMode } from '@mokup/shared'
 import type { MiddlewareHandler } from '@mokup/shared/hono'
 
 export type { DiagnosticCategory, DiagnosticErrorMode } from '@mokup/shared'
@@ -76,6 +76,31 @@ export interface BuildOptions {
    * @default undefined
    */
   errorOn?: DiagnosticErrorMode
+}
+
+/** Options for checking mock routes without creating build artifacts. */
+export type CheckOptions = Pick<
+  BuildOptions,
+  'dir' | 'root' | 'prefix' | 'include' | 'exclude' | 'ignorePrefix' | 'errorOn'
+>
+
+/** A nonempty group of route diagnostics in a check report. */
+export interface CheckDiagnostic {
+  category: DiagnosticCategory
+  label: string
+  count: number
+  items: string[]
+  advice?: string
+}
+
+/** Stable, serializable route-check output. */
+export interface CheckResult {
+  schemaVersion: 1
+  valid: boolean
+  routeCount: number
+  diagnostics: CheckDiagnostic[]
+  /** CLI error details when scanning could not complete. The API rejects instead. */
+  error?: { message: string }
 }
 
 /**

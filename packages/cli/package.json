@@ -1,7 +1,7 @@
 {
   "name": "@mokup/cli",
   "type": "module",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "CLI for building mokup manifests and handlers.",
   "license": "MIT",
   "homepage": "https://mokup.icebreaker.top",
@@ -41,6 +41,12 @@
     "@mokup/runtime": "workspace:*",
     "@mokup/server": "workspace:*",
     "@mokup/shared": "workspace:*",
-    "commander": "^15.0.0"
+    "commander": "^14.0.3"
+  },
+  "tsd": {
+    "compilerOptions": {
+      "module": "NodeNext",
+      "rootDir": "."
+    }
   }
 }

@@ -128,5 +128,7 @@ export default {
 
 - 已发布包现在只提供 ESM。推荐使用 `webpack.config.ts` 或 `webpack.config.mjs`。
 - Dev server 会通过 `devServer.setupMiddlewares` 注入中间件，请确保启用了 `webpack-dev-server`。
+- 关闭 Webpack watch 时会取消排队中的 mock 刷新，并丢弃尚未完成的结果；重新启动 watch 后会恢复 mock 文件监听。路由与 SW bundle 在刷新成功后一起更新，刷新失败时保留上一次成功的结果。
+- 监听启动期间发生的文件修改，会在文件监听就绪后补充刷新。
 - `mokupWebpack(...)` 会自动创建 `devServer` 对象，除非需要自定义 dev-server 设置，否则可以省略。
 - SW 生命周期脚本会输出到 assets 目录（默认 `assets/mokup-sw-lifecycle.js`）。如果使用 `html-webpack-plugin` 会自动注入，否则需要手动引入。

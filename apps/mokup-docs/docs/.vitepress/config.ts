@@ -25,7 +25,7 @@ const themeConfig: DefaultTheme.Config = {
   ],
   nav: enNav,
   sidebar: enSidebar,
-  outlineTitle: 'On this page',
+  outline: { label: 'On this page' },
 }
 
 const vitePlugins = [
@@ -69,7 +69,7 @@ const vitePlugins = [
       '',
     ].join('\n'),
   }),
-] as unknown as any[]
+]
 
 const head: HeadConfig[] = [
   ['link', { rel: 'icon', href: '/favicon.ico' }],
@@ -128,7 +128,7 @@ const docsConfig: UserConfig<DefaultTheme.Config> = {
       themeConfig: {
         nav: zhNavWithDraftPreview,
         sidebar: zhSidebar,
-        outlineTitle: '本页目录',
+        outline: { label: '本页目录' },
       },
     },
   },

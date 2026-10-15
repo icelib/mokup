@@ -38,9 +38,11 @@ describe('module loader', () => {
   })
 
   it('uses Vite ssrLoadModule when available', async () => {
+    const node = { id: '/mock.ts', file: '/mock.ts' }
     const server = {
       moduleGraph: {
-        getModuleById: vi.fn().mockReturnValue({ id: 'mock' }),
+        resolveUrl: vi.fn().mockImplementation(async (id: string) => [id, node.id]),
+        getModuleById: vi.fn().mockReturnValue(node),
         getModulesByFile: vi.fn().mockReturnValue(undefined),
         invalidateModule: vi.fn(),
       },
@@ -50,7 +52,8 @@ describe('module loader', () => {
     const mod = await loadModuleWithVite(server as never, '/mock.ts')
     expect(mod).toEqual({ value: 'ssr' })
     expect(server.moduleGraph.invalidateModule).toHaveBeenCalled()
-    expect(server.ssrLoadModule).toHaveBeenCalledWith(expect.stringMatching(/^\/mock\.ts\?mokupv=\d+$/))
+    expect(server.moduleGraph.resolveUrl).toHaveBeenCalledWith(expect.stringMatching(/^\/mock\.ts\?mokupv=.+$/), true)
+    expect(server.ssrLoadModule).toHaveBeenCalledWith(server.moduleGraph.resolveUrl.mock.calls[0]?.[0])
   })
 
   it('invalidates all module nodes resolved by file', async () => {
@@ -58,6 +61,7 @@ describe('module loader', () => {
     const nodeB = { id: '/mock.ts?ssr' }
     const server = {
       moduleGraph: {
+        resolveUrl: vi.fn().mockImplementation(async (id: string) => [id, nodeB.id]),
         getModuleById: vi.fn().mockReturnValue(null),
         getModulesByFile: vi.fn().mockReturnValue(new Set([nodeA, nodeB])),
         invalidateModule: vi.fn(),
@@ -71,7 +75,7 @@ describe('module loader', () => {
     expect(server.moduleGraph.invalidateModule).toHaveBeenCalledWith(nodeA)
     expect(server.moduleGraph.invalidateModule).toHaveBeenCalledWith(nodeB)
     expect(server.moduleGraph.invalidateModule).toHaveBeenCalledTimes(2)
-    expect(server.ssrLoadModule).toHaveBeenCalledWith(expect.stringMatching(/^\/mock\.ts\?mokupv=\d+$/))
+    expect(server.ssrLoadModule).toHaveBeenCalledWith(server.moduleGraph.resolveUrl.mock.calls[0]?.[0])
   })
 
   it('falls back to loadModule without Vite', async () => {

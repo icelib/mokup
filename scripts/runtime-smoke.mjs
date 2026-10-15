@@ -79,7 +79,14 @@ async function packPackages() {
 
   assert.equal(packages.length, 9, 'Pack every publishable workspace')
   await copyFile(join(scriptDir, 'runtime-smoke-consumer.mjs'), join(packDir, 'consumer.mjs'))
-  await writeFile(join(packDir, 'manifest.json'), JSON.stringify({ packages }, null, 2))
+  const runtimeScripts = [
+    'check-runtime-compat.mjs',
+    ...(await readdir(scriptDir)).filter(filename => /^runtime-.+-smoke\.mjs$/.test(filename)),
+  ]
+  for (const filename of runtimeScripts) {
+    await copyFile(join(scriptDir, filename), join(packDir, filename))
+  }
+  await writeFile(join(packDir, 'manifest.json'), JSON.stringify({ packages, runtimeScripts }, null, 2))
   process.stdout.write(`runtime smoke packed ${packages.length} packages into ${packDir}\n`)
 }
 
@@ -97,8 +104,9 @@ async function verifyInstalledPackages(consumerDir, packages) {
 }
 
 async function runRuntime() {
-  const { packages } = JSON.parse(await readFile(join(packDir, 'manifest.json'), 'utf8'))
+  const { packages, runtimeScripts } = JSON.parse(await readFile(join(packDir, 'manifest.json'), 'utf8'))
   assert.equal(packages.length, 9, 'Expected all nine packed workspaces')
+  assert(Array.isArray(runtimeScripts), 'Pack the current runtime compatibility fixtures first')
   process.stdout.write(`runtime smoke installing ${packages.length} packed packages on ${process.version}\n`)
   const consumerDir = await realpath(await mkdtemp(join(tmpdir(), 'mokup-consumer-')))
   try {
@@ -114,12 +122,17 @@ async function runRuntime() {
     }, null, 2))
     await writeFile(join(consumerDir, '.npmrc'), 'engine-strict=true\npackage-lock=false\naudit=false\nfund=false\n')
     await copyFile(join(packDir, 'consumer.mjs'), join(consumerDir, 'smoke.mjs'))
+    for (const filename of runtimeScripts) {
+      await copyFile(join(packDir, filename), join(consumerDir, filename))
+    }
+    await writeFile(join(consumerDir, 'runtime-packages.json'), JSON.stringify(packages))
     const npmCli = process.platform === 'win32'
       ? join(dirname(process.execPath), 'node_modules/npm/bin/npm-cli.js')
       : resolve(dirname(process.execPath), '../lib/node_modules/npm/bin/npm-cli.js')
     await run(process.execPath, [npmCli, 'install', '--omit=dev', '--engine-strict'], consumerDir)
     await verifyInstalledPackages(consumerDir, packages)
     await run(process.execPath, ['smoke.mjs'], consumerDir)
+    await run(process.execPath, ['check-runtime-compat.mjs', '--consumer'], consumerDir)
   }
   finally {
     await rm(consumerDir, { recursive: true, force: true, maxRetries: 3 })

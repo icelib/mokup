@@ -1,5 +1,65 @@
 # mokup
 
+## 3.1.0
+
+### Minor Changes
+
+- Add `mokup check` and `checkManifest()` to validate mock routes without generating build artifacts or starting a server. Support strict diagnostics, structured JSON reports, and actionable failures for missing directories and invalid JSON mock files while preserving existing build behavior.
+
+### Patch Changes
+
+- Publish Vite route refreshes atomically after diagnostics, app construction, and route signature generation succeed. Keep the last successful routes, Playground metadata, app, and Service Worker version when a candidate refresh is rejected, while continuing to record diagnostics. Recover first-route Service Worker registration after rejected scans and expose the complete new snapshot before notifying HMR consumers.
+
+- Keep the current page and automatic Service Worker update queue alive when worker runtime entries all use SW mode with server fallback disabled. Avoid redundant full-page reloads for these browser-only updates, while retaining empty-to-nonempty registration bootstrapping and existing refresh behavior for server routes, fallback routes, and manual registration.
+
+- Cancel pending mock refreshes when Webpack watching closes and discard unfinished work from the closed session. Serialize refreshes, publish routes and Service Worker bundles together after successful builds, and restore mock watching when the compiler starts a new watch session. Keep compilation assets and in-flight Service Worker requests tied to their own session snapshots.
+
+  Refresh once after filesystem watching is ready so edits made during its initial scan also reach compiled assets.
+
+- Apply Service Worker lifecycle scripts when opening the dynamic Playground directly in Vite preview. Register the existing built worker independently of current source routes, skip registration when its artifact is missing, and honor the current manual-registration and unregister settings without injecting development-only imports or HMR scripts.
+
+- Escape generated module imports and handler map keys so paths containing quotes, backslashes, or line breaks preserve their identity in bundles, Service Workers, CLI handler indexes, and Playground HMR scripts.
+
+- Preserve Mokup route grammar when registering Hono routes. Numeric, hyphenated, and repeated parameter names no longer break routing, and static colons, wildcards, braces, and pipes match literally. Keep original parameter names available to middleware, mounted apps, and error handlers.
+
+- Upgrade runtime dependencies, migrate Node WebSocket support to `@hono/node-server` 2, and add Vite 8 peer compatibility.
+
+- Resolve Playground build output relative to the Vite project root and avoid duplicating the base prefix on disk. When Playground builds are enabled, preview serves the built HTML, assets, and route snapshot, preserves query parameters when redirecting the mount to its trailing-slash URL, and keeps server mock routes from shadowing that static mount.
+
+- Preserve original request bytes when server adapters reconstruct Fetch requests, fixing binary and multipart file uploads without changing existing parsed body or raw text fields. Runtime requests can provide optional `rawBodyBytes`, which takes precedence over `rawBody` and `body`, including empty byte arrays and sliced buffers.
+
+- Reject non-HTTP URL schemes in Node request targets before matching mock or Playground routes. Return a bad-request error for FTP, WebSocket, file, and other non-HTTP targets while preserving ordinary paths, leading double slashes, and absolute HTTP(S) URLs.
+
+- Keep Service Worker mock responses current when route updates arrive during registration or hot-module reconnects. Listen before registration completes, catch up when the worker becomes available, and release hot-update listeners when their module is disposed.
+
+- Preserve mock updates that arrive while a newer Service Worker is installing alongside an active worker, then refresh the worker after installation finishes.
+
+- Register the Service Worker fetch listener before asynchronous runtime app construction completes. Requests received while handlers or middleware are loading now wait for the runtime promise instead of falling through during the activation window.
+
+- Handle invalid request URLs safely in Vite, preview, and Webpack Service Worker middleware. Return a readable 400 response for malformed URLs and preserve leading double slashes as part of HTTP request paths instead of interpreting them as a hostname.
+
+- Align the built Service Worker file with its registration URL when `sw.path` already includes the complete Vite `base`. Avoid duplicating the base directory so the built application and dynamic Playground can register the worker in preview.
+
+- Update runtime dependencies and the shared build toolchain to current compatible releases, including stable Rolldown and Vite 8 support. Preserve the published packages' Node.js runtime requirement of `^20.19.0 || >=22.12.0`.
+
+  Migrate repository tooling and release management to repoctl and pnpm 12 native versioning. Development, builds, and CI use Node.js 24 LTS from 24.15.0; TypeScript remains on its latest compatible release line. Integrate the Hono Node server 2.x WebSocket migration while retaining the published Node.js runtime range.
+
+- Keep Node mock routes responsive to additions, deletions, and recreation after an empty Vite dev or preview startup. In Vite dev, reload the page to register the Service Worker when the first SW route appears and automatic registration is enabled. Update the worker to an empty route table when all SW routes are removed so requests return to the network.
+
+- Serve the built Service Worker during Vite preview instead of overriding it with unbundled development source. Browser SW registration now works with bundled JSON routes, TypeScript handlers, and middleware under the configured base path, including manual registration. SW mock changes require a rebuild; Node preview route watching remains available.
+
+- Manage mock route refreshes across Vite shutdown and restart: cancel pending watcher work, drain active scans before closing the module loader, and serialize overlapping refresh requests so newer routes cannot be replaced by older scan results.
+
+- Invalidate the generated route bundle in every Vite dev environment so worker runtime mock responses stay current after consecutive file edits.
+
+- Updated dependencies:
+  - @mokup/cli@2.1.0
+  - @mokup/core@2.0.1
+  - @mokup/playground@1.0.1
+  - @mokup/runtime@2.1.0
+  - @mokup/server@2.0.1
+  - @mokup/shared@2.0.1
+
 ## 3.0.0
 
 ### Major Changes

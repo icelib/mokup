@@ -1,6 +1,6 @@
 import { resolveSwConfig } from '@mokup/core'
 import { Hono } from '@mokup/shared/hono'
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { configureDevServer, configurePreviewServer } from '../src/vite/plugin/server-hooks'
 
@@ -73,6 +73,13 @@ async function findSwMiddleware(
 }
 
 describe('vite server hooks extra coverage', () => {
+  beforeEach(() => {
+    vi.resetAllMocks()
+    middlewareMocks.createMiddleware.mockImplementation(() => (_req: any, _res: any, next: () => void) => next())
+    watcherMocks.setupPreviewWatchers.mockImplementation(() => ({ close: vi.fn() }))
+    swMocks.buildSwScript.mockImplementation(() => 'self.skipWaiting()')
+  })
+
   it('returns 500 when sw generation fails', async () => {
     swMocks.buildSwScript.mockImplementation(() => {
       throw new Error('boom')
@@ -103,7 +110,6 @@ describe('vite server hooks extra coverage', () => {
       playgroundConfig: { path: '/__mokup', enabled: false, build: false },
       playgroundMiddleware: (_req, _res, next) => next(),
       swConfig,
-      hasSwRoutes: () => true,
       enableViteMiddleware: false,
       refreshRoutes: async () => {},
       resolveAllDirs: () => ['/root/mock'],
@@ -122,7 +128,6 @@ describe('vite server hooks extra coverage', () => {
     await swMiddleware?.({ url: '/mokup-sw.js' }, res, vi.fn())
     expect(res.statusCode).toBe(500)
     expect(logger.error).toHaveBeenCalled()
-    swMocks.buildSwScript.mockImplementation(() => 'self.skipWaiting()')
   })
 
   it('enables vite middleware and watchers when configured', async () => {
@@ -150,7 +155,6 @@ describe('vite server hooks extra coverage', () => {
       playgroundConfig: { path: '/__mokup', enabled: false, build: false },
       playgroundMiddleware: (_req, _res, next) => next(),
       swConfig: null,
-      hasSwRoutes: () => false,
       enableViteMiddleware: true,
       refreshRoutes: async () => {},
       resolveAllDirs: () => ['/root/mock'],
@@ -191,7 +195,6 @@ describe('vite server hooks extra coverage', () => {
       playgroundConfig: { path: '/__mokup', enabled: false, build: false },
       playgroundMiddleware: (_req, _res, next) => next(),
       swConfig: null,
-      hasSwRoutes: () => false,
       enableViteMiddleware: false,
       refreshRoutes: async () => {},
       resolveAllDirs: () => ['/root/mock'],
@@ -230,7 +233,6 @@ describe('vite server hooks extra coverage', () => {
       playgroundConfig: { path: '/__mokup', enabled: false, build: false },
       playgroundMiddleware: (_req, _res, next) => next(),
       swConfig: null,
-      hasSwRoutes: () => false,
       enableViteMiddleware: true,
       refreshRoutes: async () => {},
       resolveAllDirs: () => ['/root/mock'],
@@ -241,7 +243,7 @@ describe('vite server hooks extra coverage', () => {
     expect(getApp?.()).toBe(state.app)
   })
 
-  it('reports preview sw generation errors', async () => {
+  it('keeps preview SW requests untouched even when source generation would fail', async () => {
     swMocks.buildSwScript.mockImplementation(() => {
       throw new Error('boom')
     })
@@ -271,26 +273,23 @@ describe('vite server hooks extra coverage', () => {
       playgroundConfig: { path: '/__mokup', enabled: false, build: false },
       playgroundMiddleware: (_req, _res, next) => next(),
       swConfig,
-      hasSwRoutes: () => true,
       enableViteMiddleware: true,
       refreshRoutes: async () => {},
       resolveAllDirs: () => ['/root/mock'],
       watchEnabled: false,
     })
 
-    const swMiddleware = await findSwMiddleware(server.middlewares.stack)
-    const res = {
-      statusCode: 0,
-      headers: {} as Record<string, string>,
-      setHeader: (name: string, value: string) => {
-        res.headers[name.toLowerCase()] = value
-      },
-      end: vi.fn(),
+    const res = { statusCode: 0, setHeader: vi.fn(), end: vi.fn() }
+    for (const entry of server.middlewares.stack) {
+      const next = vi.fn()
+      await entry.handle({ url: '/mokup-sw.js' }, res, next)
+      expect(next).toHaveBeenCalledExactlyOnceWith()
     }
-    await swMiddleware?.({ url: '/mokup-sw.js' }, res, vi.fn())
-    expect(res.statusCode).toBe(500)
-    expect(logger.error).toHaveBeenCalled()
-    expect(middlewareMocks.createMiddleware).not.toHaveBeenCalled()
-    swMocks.buildSwScript.mockImplementation(() => 'self.skipWaiting()')
+    expect(res.statusCode).toBe(0)
+    expect(res.setHeader).not.toHaveBeenCalled()
+    expect(res.end).not.toHaveBeenCalled()
+    expect(swMocks.buildSwScript).not.toHaveBeenCalled()
+    expect(logger.error).not.toHaveBeenCalled()
+    expect(middlewareMocks.createMiddleware).toHaveBeenCalledOnce()
   })
 })

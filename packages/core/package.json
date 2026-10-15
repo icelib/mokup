@@ -1,7 +1,7 @@
 {
   "name": "@mokup/core",
   "type": "module",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "Core scanning and middleware utilities for mokup.",
   "license": "MIT",
   "homepage": "https://mokup.icebreaker.top",
@@ -249,16 +249,6 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test:types": "tsd"
   },
-  "tsd": {
-    "compilerOptions": {
-      "baseUrl": ".",
-      "paths": {
-        "vite": [
-          "./node_modules/vite/dist/node/index.d.ts"
-        ]
-      }
-    }
-  },
   "peerDependencies": {
     "vite": "^5.0.0 || ^6.0.0 || ^7.0.0 || ^8.0.0"
   },
@@ -270,5 +260,14 @@
   "dependencies": {
     "@mokup/runtime": "workspace:*",
     "@mokup/shared": "workspace:*"
+  },
+  "tsd": {
+    "compilerOptions": {
+      "module": "NodeNext",
+      "rootDir": "."
+    }
+  },
+  "devDependencies": {
+    "vite": "catalog:"
   }
 }

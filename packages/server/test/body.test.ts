@@ -28,10 +28,15 @@ describe('internal body helpers', () => {
     const bytes = new Uint8Array([123, 125])
     const fromBytes = await resolveBody(bytes, 'application/json')
     expect(fromBytes.body).toEqual({})
+    expect(fromBytes.rawBody).toBe('{}')
+    expect(fromBytes.rawBodyBytes).toEqual(bytes)
+    expect(fromBytes.rawBodyBytes).not.toBe(bytes)
 
     const buffer = new Uint8Array([97, 61, 49]).buffer
     const fromBuffer = await resolveBody(buffer, 'application/x-www-form-urlencoded')
     expect(fromBuffer.body).toEqual({ a: '1' })
+    expect(fromBuffer.rawBody).toBe('a=1')
+    expect(fromBuffer.rawBodyBytes).toEqual(new Uint8Array(buffer))
 
     const object = await resolveBody({ ok: true }, 'text/plain')
     expect(object).toEqual({ body: { ok: true } })
@@ -48,6 +53,7 @@ describe('internal body helpers', () => {
 
     const result = await promise
     expect(result.rawBody).toContain('hi ok')
+    expect(result.rawBodyBytes).toEqual(new TextEncoder().encode(result.rawBody))
   })
 
   it('returns undefined when stream has no data', async () => {
@@ -56,7 +62,16 @@ describe('internal body helpers', () => {
     stream.emit('end')
 
     const result = await promise
-    expect(result.body).toBeUndefined()
+    expect(result).toEqual({ body: undefined })
+  })
+
+  it('retains an explicitly empty byte stream without adding raw text', async () => {
+    const stream = new EventEmitter()
+    const promise = resolveBody(undefined, 'text/plain', stream)
+    stream.emit('data', new Uint8Array(0))
+    stream.emit('end')
+
+    await expect(promise).resolves.toEqual({ body: undefined, rawBodyBytes: new Uint8Array(0) })
   })
 
   it('rejects when stream errors', async () => {

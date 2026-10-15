@@ -1,30 +1,37 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
+import type { WebpackBuildSession } from './session'
+import { parseHttpRequestUrl } from '../../shared/http-request'
 import { resolveRegisterPath } from './paths'
 
 function createSwMiddleware(params: {
   swConfig: { path: string } | null
-  hasSwRoutes: () => boolean
+  getSession: () => WebpackBuildSession | null
   getBase: () => string
-  ensureBuilt: () => Promise<void>
-  getSwBundle: () => string | null
 }) {
   return async (
     req: IncomingMessage,
     res: ServerResponse,
     next: (err?: unknown) => void,
   ) => {
-    if (!params.swConfig || !params.hasSwRoutes()) {
+    const session = params.getSession()
+    const snapshot = session?.peek()
+    if (!params.swConfig || !session?.isActive() || !snapshot?.state.swRoutes.length) {
       return next()
     }
-    const requestUrl = req.url ?? '/'
-    const parsed = new URL(requestUrl, 'http://mokup.local')
-    const swPath = resolveRegisterPath(params.getBase(), params.swConfig.path)
+    const parsed = parseHttpRequestUrl(req, res)
+    if (!parsed) {
+      return
+    }
+    const swPath = resolveRegisterPath(snapshot.base, params.swConfig.path)
     if (parsed.pathname !== swPath) {
       return next()
     }
 
-    await params.ensureBuilt()
-    const bundle = params.getSwBundle()
+    const built = await session.ensureBuilt() ?? session.peek()
+    if (!built || !session.isActive() || params.getSession() !== session || built.base !== snapshot.base || params.getBase() !== snapshot.base) {
+      return next()
+    }
+    const bundle = built.bundles.swBundle
     if (!bundle) {
       res.statusCode = 500
       res.setHeader('Content-Type', 'text/plain; charset=utf-8')

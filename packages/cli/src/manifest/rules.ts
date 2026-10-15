@@ -14,6 +14,16 @@ import { loadModule } from '@mokup/shared/module-loader'
  *
  * const rules = await loadRules('mock/ping.get.ts')
  */
-export async function loadRules(file: string): Promise<RouteRule[]> {
-  return loadRulesShared<RouteRule>(file, { loadModule })
+export async function loadRules(file: string, options: { strict?: boolean } = {}): Promise<RouteRule[]> {
+  let inputError: string | undefined
+  const rules = await loadRulesShared<RouteRule>(file, {
+    loadModule,
+    ...(options.strict
+      ? { logger: { warn: (message: string) => { inputError = message } } }
+      : {}),
+  })
+  if (inputError) {
+    throw new Error(inputError)
+  }
+  return rules
 }

@@ -111,8 +111,6 @@ describe('mokup webpack plugin', () => {
     const plugin = createMokupWebpackPlugin({ entries: { dir: '/root/mock' } })
 
     expect(plugin).toHaveProperty('apply')
-    expect(mocks.createRouteRefresher).toHaveBeenCalled()
-    expect(mocks.createBundleBuilder).toHaveBeenCalled()
   })
 
   it('prints a service worker conflict summary', () => {
