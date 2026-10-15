@@ -104,7 +104,7 @@
 | 独立 D1 身份验证           | 1 项通过；隔离本地数据库、假 OAuth 配置，无远程数据库操作                           |
 | 独立消费者                 | Node.js 22.12.0 和 22.23.2 均通过完整成品运行时检查，覆盖 9 个发布包、81 个公开导出 |
 | 发布包 Vite 5–8 兼容性     | 8 个版本通过                                                                        |
-| CI 系统矩阵                | PR #33 待最终运行                                                                   |
+| CI 系统矩阵                | [PR #33 的最新 CI 记录](https://github.com/sonofmagic/mokup/pull/33/checks)         |
 
 D1 测试使用原 schema，并包含由 Better Auth 1.6.23 生成的密码 hash、credential 与 GitHub 关联账号。用例覆盖旧密码登录、关联账号读取、新注册、session、退出、再次登录、用户创建与列表、重复用户 409；不包含真实 GitHub OAuth 回调。
 
