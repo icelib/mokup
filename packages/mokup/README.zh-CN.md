@@ -20,7 +20,7 @@ handler 和 service worker 配置冲突不再只是 warning，而是直接让构
 
 ## 环境要求
 
-- Node.js `^20.19.0 || >=22.12.0`
+- Node.js `>=22.12.0`
 
 ## 升级提示
 

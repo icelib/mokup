@@ -432,7 +432,7 @@ Schema 必须显式声明 `string`、`number`、`integer`、`boolean` 或对应�
 
 OpenAPI 契约命令 `mokup generate --contract api.yaml --out fixtures.json` 与 `mokup check --contract api.yaml --fixtures fixtures.json` 同时接受 JSON 和 YAML。相对路径的本地 `$ref` 会在校验和生成前解析。HTTP(S) 引用必须显式传入 `--allow-network`。runtime 契约包仍接收已经解析的对象，因此浏览器和 Worker bundle 不包含文件系统或 YAML loader。
 
-`mokup/ws` 提供 `ws.link(...)`、连接监听、客户端快照、广播和可选的上游转发/改写。单独调用 `setupWebSocket(...links).start({ onUnhandledConnection: 'error' })` 启动，并在收尾时等待其 `stop()`。HTTP 的 `setupServer`/`setupWorker` 不会启动该控制器；每个 JavaScript realm 同时只能运行一个 WebSocket 控制器。它拦截全局 Web 标准构造器，Node.js 20 需要先提供兼容的全局实现。不覆盖独立导入的构造器、其他 realm 和真实握手/TLS/压缩语义。详见 [WebSocket 参考](../reference/websocket)。
+`mokup/ws` 提供 `ws.link(...)`、连接监听、客户端快照、广播和可选的上游转发/改写。单独调用 `setupWebSocket(...links).start({ onUnhandledConnection: 'error' })` 启动，并在收尾时等待其 `stop()`。HTTP 的 `setupServer`/`setupWorker` 不会启动该控制器；每个 JavaScript realm 同时只能运行一个 WebSocket 控制器。它拦截全局 Web 标准构造器，全局构造器不可用时需要先提供兼容实现。不覆盖独立导入的构造器、其他 realm 和真实握手/TLS/压缩语义。详见 [WebSocket 参考](../reference/websocket)。
 
 ## 诊断、插件与 Playground 历史
 

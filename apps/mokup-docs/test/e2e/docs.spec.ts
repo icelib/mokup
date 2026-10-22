@@ -11,7 +11,7 @@ async function duringPageReload<T>(operation: () => Promise<T>): Promise<T | nul
   }
   catch (error) {
     // Vite full reloads replace the context outside the browser callback's try/catch.
-    if (error instanceof Error && error.message.includes('Execution context was destroyed')) {
+    if (error instanceof Error && error.message.includes('Execution context was destroyed, most likely because of a navigation.')) {
       return null
     }
     throw error

@@ -12,7 +12,7 @@ interface PackageFixture {
   dependencies?: Record<string, string>
 }
 
-function createLibrary(name: string, node = '^20.19.0 || >=22.12.0'): PackageFixture {
+function createLibrary(name: string, node = '>=22.12.0'): PackageFixture {
   return {
     name,
     type: 'module',
@@ -38,16 +38,16 @@ function createInput() {
       },
       {
         file: 'apps/example/package.json',
-        pkg: { name: 'example', private: true, engines: { node: '>=24.11.0' } },
+        pkg: { name: 'example', private: true, engines: { node: '>=24.15.0' } },
       },
     ],
     rootPackage: {
-      engines: { node: '>=24.11.0' },
+      engines: { node: '>=24.15.0' },
       devDependencies: { tsdown: 'catalog:' },
       pnpm: { overrides: {} as Record<string, string> },
     },
     workspace: {
-      catalog: { rolldown: '^1.2.0', tsdown: '^0.23.0' } as Record<string, string>,
+      catalog: { rolldown: '1.2.14', tsdown: '0.23.1' } as Record<string, string>,
       overrides: {} as Record<string, string>,
     },
     scanEntries: [] as Array<{ file: string, content: string }>,
@@ -62,6 +62,36 @@ describe('migration guards', () => {
       content: `import { build } from '@mokup/shared/rolldown'\nexport { build }\n`,
     })
     expect(evaluateMigrationGuards(input)).toEqual([])
+  })
+
+  it('normalizes Windows package paths before checking the catalog and Node policy sources', () => {
+    const input = createInput()
+    for (const entry of input.packageEntries) {
+      entry.file = entry.file.replaceAll('/', '\\')
+    }
+    expect(evaluateMigrationGuards(input)).toEqual([])
+  })
+
+  it.each([
+    {
+      location: 'migration documentation',
+      file: 'apps\\mokup-docs\\docs\\getting-started\\upgrade-to-v1.md',
+      content: `import { build } from '@mokup/shared/esbuild'\nconst { mokup } = require('mokup')\nmodule.exports = mokup({})\n`,
+      expected: [],
+    },
+    {
+      location: 'public documentation',
+      file: 'apps\\mokup-docs\\docs\\reference\\webpack-plugin.md',
+      content: `const { mokupWebpack } = require('mokup/webpack')\nmodule.exports = mokupWebpack({})\n`,
+      expected: [
+        'apps/mokup-docs/docs/reference/webpack-plugin.md: public docs must use ESM config examples instead of module.exports',
+        'apps/mokup-docs/docs/reference/webpack-plugin.md: public docs must use ESM import examples for published mokup packages',
+      ],
+    },
+  ])('checks Windows paths consistently for $location', ({ file, content, expected }) => {
+    const input = createInput()
+    input.scanEntries.push({ file, content })
+    expect(evaluateMigrationGuards(input)).toEqual(expected)
   })
 
   it('allows catalog and Node policy upgrades without changing guard code', () => {

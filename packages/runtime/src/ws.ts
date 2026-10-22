@@ -232,7 +232,7 @@ export function setupWebSocket(...links: WebSocketLink[]): WebSocketController {
         throw new Error('Another mokup WebSocket controller is already active. Stop it before starting another.')
       }
       if (typeof globalThis.WebSocket !== 'function') {
-        throw new TypeError('WebSocket interception requires a global WebSocket constructor. On Node.js 20, install a web-standard implementation such as undici before start().')
+        throw new TypeError('WebSocket interception requires a global WebSocket constructor. Install a web-standard implementation such as undici before start().')
       }
       const descriptor = Object.getOwnPropertyDescriptor(globalThis, 'WebSocket')
       if (descriptor && !descriptor.configurable && !descriptor.writable) {

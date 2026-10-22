@@ -12,12 +12,12 @@ Related entries:
 All published packages now require:
 
 ```text
-^20.19.0 || >=22.12.0
+>=22.12.0
 ```
 
-Earlier Node.js versions are no longer supported.
+Node.js 20 and earlier are no longer supported.
 
-Development, builds, and CI for this repository use Node.js 24 LTS (at least 24.15.0 within the 24.x line) and pnpm 12.8.1. This development requirement is separate from the published packages' runtime range above.
+Repository development and builds require Node.js `>=24.15.0` and the pnpm version pinned in `package.json`. CI uses Node.js 24 LTS. This development requirement is separate from the published packages' runtime range above.
 
 ## 2. Packages are now ESM-only
 

@@ -12,6 +12,9 @@ export default defineMonorepoConfig({
     },
     release: {
       qualityScripts: ['release:check'],
+      hooks: {
+        afterPublish: [{ script: 'release:sync-npmmirror', continueOnError: true, idempotent: true }],
+      },
     },
     upgrade: {
       skipOverwrite: false,

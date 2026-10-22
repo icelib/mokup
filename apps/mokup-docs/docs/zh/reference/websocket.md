@@ -113,6 +113,6 @@ controller.start({
 普通 WebSocket 连接会为每个线上消息发出 `protocol:message`，其中
 `direction: 'inbound'` 表示应用发往 Mock，`direction: 'outbound'` 表示 Mock 或上游发往应用。GraphQL 会在这些传输事件之上追加操作级协议事件。
 
-拥有可替换全局 WebSocket 的浏览器和 Node.js 可直接使用。在 Node.js 20 中，需要先将兼容实现（例如 `undici`）设置到 `globalThis.WebSocket`，否则 `start()` 会抛出包含接入提示的错误。`import WebSocket from 'ws'` 等独立导入的构造器不会被拦截，除非在应用代码运行前将其安装为全局构造器。`start()` 之前创建的连接以及其他 JavaScript 环境中的连接不受影响。
+拥有可替换全局 WebSocket 的浏览器和 Node.js 可直接使用。如果全局构造器不可用，需要先将兼容实现（例如 `undici`）设置到 `globalThis.WebSocket`，否则 `start()` 会抛出包含接入提示的错误。发布包要求 Node.js 22.12.0 或更新版本。`import WebSocket from 'ws'` 等独立导入的构造器不会被拦截，除非在应用代码运行前将其安装为全局构造器。`start()` 之前创建的连接以及其他 JavaScript 环境中的连接不受影响。
 
 集成测试使用 Node 的全局 WebSocket，覆盖文本和二进制 mock、真实本地 WebSocket 服务转发、双向消息改写、严格未命中策略、匹配优先级、广播、取消、停止与重启。Chrome、Firefox 和 WebKit 浏览器 conformance 已覆盖匹配消息、广播、未命中 error 策略、生命周期事件和 teardown；握手时序与子协议协商仍不在该矩阵内。

@@ -1,14 +1,11 @@
 diff --git a/dist/commands-CB-HD_yZ.mjs b/dist/commands-CB-HD_yZ.mjs
-index 26cf7bf03d6ae3046db6d41e26e74f93a16636fd..67f127594c982e0f112266a3cf4236bf066775b6 100644
 --- a/dist/commands-CB-HD_yZ.mjs
 +++ b/dist/commands-CB-HD_yZ.mjs
-@@ -5030,13 +5030,35 @@ async function writeReleaseState(request, key, state, revision, options = {}) {
+@@ -5030,13 +5030,33 @@
  		await request("GET", `/git/ref/heads/${branch}`);
  	} catch (error) {
  		if (!missing(error)) throw error;
-+		// Checkpoints are data, not a copy of a historical source tree. Copying
-+		// workflows from an older release commit requires workflows permission,
-+		// which the Actions GITHUB_TOKEN cannot grant to a new branch.
++		// The checkpoint branch stores release state without copying source workflows.
 +		const { data: tree } = await request("POST", "/git/trees", {
 +			tree: [{
 +				path: ".repoctl-release/README.md",

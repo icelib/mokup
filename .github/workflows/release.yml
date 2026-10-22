@@ -124,7 +124,7 @@ jobs:
             throw new Error(
               'Prepare prerelease versions locally with pnpm version -r, commit and push the version artifacts, '
               + 'then dispatch this workflow on that branch with mode=auto. '
-              + 'This OIDC workflow requires prerelease version artifacts to be prepared before publishing.',
+              + 'This OIDC workflow requires committed prerelease version artifacts.',
             )
           }
           NODE

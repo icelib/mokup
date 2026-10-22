@@ -3,29 +3,33 @@ packages:
   - packages/*
   - '!**/test/**'
 catalog:
-  '@cloudflare/vite-plugin': ^1.62.5
+  '@cloudflare/vite-plugin': ^1.64.0
   '@faker-js/faker': ^10.6.0
-  '@hono/node-server': ^2.1.3
+  '@hono/node-server': ^2.1.5
   '@tailwindcss/vite': ^4.3.3
-  '@types/node': ^24.19.1
-  '@vitejs/plugin-vue': ^6.0.9
+  '@types/node': ^24.19.2
+  '@vitejs/plugin-vue': ^6.0.10
   axios: ^1.20.0
-  hono: ^4.13.12
+  hono: ^4.13.13
   pathe: ^2.0.3
-  rolldown: 1.2.12
+  rolldown: 1.2.14
   tailwindcss: ^4.3.3
-  tsdown: 0.23.0
+  tsdown: 0.23.1
   tsx: ^4.23.15
   typescript: ^6.0.3
   vite: ^8.3.5
-  vue: ^3.5.43
-  vue-tsc: ^3.3.12
-  wrangler: ^4.147.0
+  vue: ^3.5.44
+  vue-tsc: ^3.3.13
+  wrangler: ^4.151.0
 autoInstallPeers: true
 strictPeerDependencies: false
 resolutionMode: highest
+packageExtensions:
+  '@pnpm/fs.find-packages@1000.0.24':
+    dependencies:
+      '@pnpm/logger': 1001.0.1
 pmOnFail: error
-minimumReleaseAge: 0
+minimumReleaseAge: 1440
 strictDepBuilds: true
 allowBuilds:
   '@prisma/engines': false
@@ -38,28 +42,17 @@ allowBuilds:
 versioning:
   changelog:
     storage: repository
-
-# stylelint's css-calc peer requires these compatible patch releases.
 overrides:
-  # Keep Vite's optional transform types identical across workspace peers.
-  vite@8.3.5>esbuild: 0.28.2
+  # stylelint's css-calc peer requires these compatible patch releases.
   stylelint@17.16.0>@csstools/css-parser-algorithms: 4.0.2
   stylelint@17.16.0>@csstools/css-tokenizer: 4.0.2
   '@asamuzakjp/css-color@5.1.11>@csstools/css-parser-algorithms': 4.0.2
   '@asamuzakjp/css-color@5.1.11>@csstools/css-tokenizer': 4.0.2
-  # repoctl's test helpers must share Vitest's exact coverage-plugin peer version.
-  '@icebreakers/monorepo@5.10.3>vitest': ~5.0.5
-  # Retain the remote branch's security floors without pinning all build tools.
-  '@babel/plugin-transform-modules-systemjs@>=7.12.0 <=7.29.3': ^7.29.4
-  '@hono/node-server@<1.19.13': ^1.19.13
   adm-zip@<0.6.0: ^0.6.0
   cross-spawn@>=7.0.0 <7.0.5: ^7.0.5
   effect@<3.20.0: ^3.20.0
   form-data@>=4.0.0 <4.0.6: ^4.0.6
-  hono@<4.12.25: ^4.12.25
-  lodash@<=4.17.23: ^4.17.24
   rollup@>=4.0.0 <4.59.0: ^4.59.0
-  serialize-javascript@<7.0.5: ^7.0.5
   uuid@<11.1.1: ^11.1.1
   tar@>=7.0.0 <7.5.22: ^7.5.22
   path-to-regexp@>=8.0.0 <8.4.2: ^8.4.2
@@ -75,22 +68,31 @@ overrides:
   browserslist@>=4.0.0 <4.29.3: ^4.29.3
   baseline-browser-mapping@>=2.0.0 <2.11.27: ^2.11.27
   qs@>=6.0.0 <6.16.0: ^6.16.0
-  markdown-it@>=14.0.0 <14.3.3: ^14.3.3
   '@humanfs/node@>=0.16.0 <0.16.8': ^0.16.8
   '@babel/core@>=7.0.0 <7.29.7': ^7.29.7
   body-parser@>=2.0.0 <2.3.0: ^2.3.0
   postcss-selector-parser@>=7.0.0 <7.1.6: ^7.1.6
-  # Security floors for compatible transitive fixes in build, docs and demo tooling.
+  # This stable Drizzle release uses tsx; its old loader dependency is unused.
+  drizzle-kit@0.31.11>@esbuild-kit/esm-loader: '-'
+  drizzle-kit@0.31.11>tsx: ^4.23.15
+  '@babel/plugin-transform-modules-systemjs@>=7.12.0 <7.29.4': ^7.29.4
+  '@hono/node-server@>=1.0.0 <1.19.15': ^1.19.15
+  hono@>=4.0.0 <4.13.13: ^4.13.13
+  lodash@>=4.0.0 <4.17.24: ^4.17.24
+  serialize-javascript@>=5.0.0 <7.0.5: ^7.0.5
+  tinypool@>=2.0.0 <2.1.2: ^2.2.0
+  # Keep Vite's optional transform types identical across workspace peers.
+  vite@8.3.5>esbuild: 0.28.2
+  # repoctl's test helpers must share Vitest's exact coverage-plugin peer version.
+  '@icebreakers/monorepo@5.10.3>vitest': ~5.0.5
+  markdown-it@>=14.0.0 <14.3.3: ^14.3.3
   launch-editor@<=2.14.1: ^2.14.2
   proxy-addr@>=1.1.0 <2.0.8: ^2.0.8
   sharp@>=0.35.0 <0.35.5: ^0.35.5
   source-map-js@>=1.0.0 <1.2.2: ^1.2.2
-  tinypool@>=2.0.0 <2.1.2: ^2.1.2
   '@ungap/structured-clone@<1.3.1': ^1.3.1
-  # KaTeX preserves its rendering API in 0.18; verify Markdown tooling after updates.
+  # Retain the validated KaTeX 0.18 line; 0.19 requires a separate API review.
   katex@>=0.11.0 <0.18.2: ~0.18.2
-  # This stable Drizzle release uses tsx; its old loader dependency is unused.
-  drizzle-kit@0.31.11>@esbuild-kit/esm-loader: '-'
-  drizzle-kit@0.31.11>tsx: ^4.23.15
+gitChecks: false
 patchedDependencies:
   '@icebreakers/monorepo@5.10.3': patches/@icebreakers__monorepo@5.10.3.patch

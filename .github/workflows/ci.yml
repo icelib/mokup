@@ -112,21 +112,12 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        node-version: [20.19.0, 22.12.0, 24]
+        node-version: [22.12.0, 24]
     env:
       HUSKY: 0
     steps:
       - name: Check out code
         uses: actions/checkout@v7
-
-      - name: Locate minimum supported Node.js
-        uses: actions/setup-node@v7
-        with:
-          node-version: ${{ matrix.node-version }}
-
-      - name: Remember runtime executable
-        id: runtime
-        run: echo "node=$(node -p 'process.execPath')" >> "$GITHUB_OUTPUT"
 
       - name: Setup build Node.js
         uses: actions/setup-node@v7
@@ -144,10 +135,18 @@ jobs:
       - name: Build publishable packages
         run: pnpm run build:packages
 
-      - name: Test isolated published artifacts on minimum Node.js
-        env:
-          RUNTIME_NODE: ${{ steps.runtime.outputs.node }}
-        run: node scripts/check-runtime-compat.mjs --node-bin "$RUNTIME_NODE"
+      - name: Pack published packages and runtime compatibility fixtures
+        run: node scripts/runtime-smoke.mjs --pack-only --dir .tmp/runtime-smoke
+
+      - name: Setup consumer Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: ${{ matrix.node-version }}
+
+      - name: Test strict consumer installation and full runtime compatibility
+        # This phase also runs check-runtime-compat.mjs --consumer, retaining
+        # all public exports, network interception and runtime lifecycle checks.
+        run: node scripts/runtime-smoke.mjs --runtime-only --dir .tmp/runtime-smoke
 
   vite-compat:
     name: Published Vite Compatibility
@@ -227,6 +226,9 @@ jobs:
       - name: Browser network conformance
         run: pnpm run test:conformance
 
+      - name: D1 Authentication Tests
+        run: pnpm run test:e2e:d1
+
       - name: Upload Playwright report
         if: failure()
         uses: actions/upload-artifact@v7
@@ -235,5 +237,6 @@ jobs:
           path: |
             playwright-report
             test-results
+            test-results-conformance
             apps/*/playwright-report
             apps/*/test-results

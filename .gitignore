@@ -42,3 +42,4 @@ config.ts.timestamp-*.mjs
 .vite-inspect
 .wrangler
 .mokup
+.tmp/

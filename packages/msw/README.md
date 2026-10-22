@@ -45,4 +45,4 @@ String matching uses `@msw/url`, also used by MSW 3, including optional/splat pa
 
 Browser startup uses Mokup's worker protocol, not MSW's worker script. Copy the `mokup/mockServiceWorker.js` asset into your app's public directory first, then use `start({ serviceWorker: { url: '/mockServiceWorker.js' } })`. The explicit `mode: 'interceptor'` fallback covers page Fetch/XHR only; it does not cover navigation, subresources, separate workers, or other tabs. See the guide for the asset-copy command.
 
-Node requirement: `^20.19.0 || >=22.12.0`. ESM-only. See the [network mocking guide](https://mokup.icebreaker.top/advanced/network-mocking).
+Node requirement: `>=22.12.0`. ESM-only. See the [network mocking guide](https://mokup.icebreaker.top/advanced/network-mocking).
