@@ -2,6 +2,8 @@
 
 ## 基线与当前契约
 
+下文合并矩阵记录 `584ac03` 阶段；后续 CI 暴露的声明遗漏及修复见文末，当前外部直接依赖数为 95。
+
 本报告对比提交 `49a45a4` 与合入 `origin/main@4b354c1` 后重新安装、生成锁文件的工作区。main 包含 `834958d` 的 npmmirror 发布后同步及 `4b354c1` 的依赖和 Node 支持策略更新。合并前的数据与测试保留在 [原依赖评估报告](./dependencies-2026-10-22.md)，其中的“最终”仅指该历史阶段。
 
 用户已明确选择跟随 main：全部 10 个发布包（含新增的 `@mokup/msw`）最低 Node.js 版本统一为 `>=22.12.0`，不再承诺 Node.js 20。根项目及 10 个私有应用继续使用 `>=24.15.0 <25` 开发，包管理器由 pnpm 12.8.1 更新为 12.11.2。现有 9 个已发布包的 major 发布意图沿用 main；本次合并没有直接改动各 package 的 version 字段。
@@ -154,3 +156,15 @@ main 的 consumer 脚本假定发布包固定为 9 个，现改为精确核对�
 全部浏览器测试后台串行运行，由同一执行者管理。测试前后核对 287 个 fixture/mock 文件，内容哈希全部一致；任务测试服务与浏览器已退出，5173/5174 端口空闲，没有关闭其他任务或用户原有浏览器。
 
 本报告的执行结果只覆盖当前 macOS。Linux、Windows 的检查由 PR CI 另行报告，在收到本次提交对应的成功结果前不标记通过；部署模板结果仅代表本地契约验证。当前明确剩余项是没有可用上游修复版的 braces high 公告，以及待 CI 验证的平台结果。
+
+## PR CI 的干净安装修复
+
+提交 `584ac03` 的首轮 CI 在三个平台的 typecheck 和两个 Node/Vite 构建任务中失败，原因相同：`@mokup/runtime` 的 HTTP matcher 直接导入 `@msw/url`，manifest 却未声明。原本本地保留的包链接掩盖了遗漏；先前本地与普通 npm 消费者安装成功不足以证明包声明完整。现补充生产依赖 `@msw/url: ^0.1.2`，锁定版本为已有传递版本 0.1.2；直接依赖由 94 增至 95，没有引入新的锁包版本。
+
+对全部 10 个发布包源码、构建配置和产物复核，还发现 core 的默认 Playground resolver 使用 `require.resolve('@mokup/playground/package.json')` 而缺声明。现以 `workspace:^` 声明可选 peer：调用方可继续注入 resolver；使用默认资源查找时需要 Playground。pnpm 会提示 core 的可选 peer 与 Playground 的开发依赖构成关联环，但 Turbo 不以 peer 建立构建边；dry-run 确认 core 只依赖 runtime/shared 构建，repo doctor 26 项通过、peer 检查通过。
+
+发布产物门禁现在解析实际 pack 清单中 JS 与声明文件的 AST，检查静态 import/export、类型引用、字面量动态 import 和 require/require.resolve（含 createRequire 别名）。外部引用必须由生产依赖、optionalDependencies 或 peerDependencies 承担，devDependencies 不再掩盖缺失声明；内置模块、相对路径和有效自身导出按各自边界处理。新增 6 项正反回归，包括缺失 matcher、包子路径、可选 peer、声明引用、资源定位和生成代码字符串。
+
+在全新临时源码目录重新冻结安装，typecheck 27 项、全仓构建 17 项、10 包增强 pack 检查及 Node 22.12 严格隔离消费者均通过，Turbo 缓存命中为 0。最终 CI 状态以 PR #35 对应最新提交的检查为准。安全复核仍只有 braces 的既有 1 条 high；该告警没有忽略或降级。两处包声明修复均附有 patch changeset，没有执行版本更新。
+
+修复后重新执行完整单测：2,047 passed、1 skipped、1 todo；覆盖率 Statements 87.00%、Lines 87.20%、Functions 88.51%、Branches 79.45%，保持原阈值。

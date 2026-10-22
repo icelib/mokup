@@ -258,9 +258,13 @@
     "test:types": "tsd"
   },
   "peerDependencies": {
+    "@mokup/playground": "workspace:^",
     "vite": "^5.0.0 || ^6.0.0 || ^7.0.0 || ^8.0.0"
   },
   "peerDependenciesMeta": {
+    "@mokup/playground": {
+      "optional": true
+    },
     "vite": {
       "optional": true
     }

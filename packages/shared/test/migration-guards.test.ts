@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { evaluateMigrationGuards } from '../../../scripts/check-migration-guards.mjs'
-import { getPackViolations } from '../../../scripts/check-pack-artifacts.mjs'
+import { getPackedDependencyViolations, getPackViolations } from '../../../scripts/check-pack-artifacts.mjs'
 
 interface PackageFixture {
   name: string
@@ -205,6 +205,102 @@ describe('migration guards', () => {
 })
 
 describe('packed migration artifacts', () => {
+  it('requires the runtime URL matcher dependency even when development installs provide it', () => {
+    const pkg = { ...createLibrary('@mokup/runtime'), devDependencies: { '@msw/url': '^0.1.2' } }
+    const content = `import { matchPattern } from '@msw/url'; export { matchPattern }`
+    expect(getPackedDependencyViolations(pkg, 'dist/session.mjs', content)).toEqual([
+      expect.stringContaining('"@msw/url" is not declared in dependencies, optionalDependencies or peerDependencies'),
+    ])
+    expect(getPackedDependencyViolations({
+      ...pkg,
+      dependencies: { '@msw/url': '^0.1.2' },
+    }, 'dist/session.mjs', content)).toEqual([])
+  })
+
+  it('checks lazy imports, reexports and declaration-only dependencies', () => {
+    const pkg = createLibrary('@mokup/example')
+    expect(getPackedDependencyViolations(pkg, 'dist/index.mjs', `
+      export { serve } from '@hono/node-server'
+      const socket = await import('ws')
+    `)).toEqual([
+      expect.stringContaining('imports "@hono/node-server"'),
+      expect.stringContaining('imports "ws"'),
+    ])
+    expect(getPackedDependencyViolations(pkg, 'dist/index.d.ts', `
+      import type { Plugin } from 'vite'
+      export type * from 'chokidar'
+      export type Document = import('graphql').DocumentNode
+      import Legacy = require('legacy-types')
+    `)).toEqual([
+      expect.stringContaining('imports "vite"'),
+      expect.stringContaining('imports "chokidar"'),
+      expect.stringContaining('imports "graphql"'),
+      expect.stringContaining('imports "legacy-types"'),
+    ])
+  })
+
+  it('checks package resolution and loading through createRequire aliases', () => {
+    const pkg = createLibrary('@mokup/core')
+    expect(getPackedDependencyViolations(pkg, 'dist/playground/assets.mjs', `
+      import { createRequire as makeRequire } from 'node:module'
+      import * as nodeModule from 'node:module'
+      const load = makeRequire(import.meta.url)
+      const require = nodeModule.createRequire(import.meta.url)
+      const packagePath = load.resolve('@mokup/playground/package.json')
+      const plugin = require('html-webpack-plugin')
+      const api = makeRequire(import.meta.url)('tsx/cjs/api')
+    `)).toEqual([
+      expect.stringContaining('imports "@mokup/playground/package.json"'),
+      expect.stringContaining('imports "html-webpack-plugin"'),
+      expect.stringContaining('imports "tsx/cjs/api"'),
+    ])
+  })
+
+  it('accepts declared dependency subpaths, peers, builtins, local files and public self exports', () => {
+    const pkg = {
+      ...createLibrary('@mokup/example'),
+      dependencies: { '@scope/helpers': '^1.0.0' },
+      optionalDependencies: { ws: '^8.0.0' },
+      peerDependencies: { vite: '^8.0.0' },
+      exports: { '.': './dist/index.mjs', './public/*': './dist/public/*.mjs' },
+    }
+    expect(getPackedDependencyViolations(pkg, 'dist/index.mjs', `
+      import { helper } from '@scope/helpers/utils'
+      export { defineConfig } from 'vite'
+      const socket = await import('ws')
+      import fs from 'node:fs'
+      import { readFile } from 'fs/promises'
+      import './local.mjs'
+      import '../other.mjs'
+      import '@mokup/example'
+      import '@mokup/example/public/http'
+    `)).toEqual([])
+  })
+
+  it('rejects private self paths and similarly named packages', () => {
+    const pkg = {
+      ...createLibrary('@mokup/example'),
+      exports: { './*': './dist/*.mjs', './internal/*': null },
+    }
+    expect(getPackedDependencyViolations(pkg, 'dist/index.mjs', `
+      import '@mokup/example/internal/helper'
+      import '@mokup/example-extra'
+    `)).toEqual([
+      expect.stringContaining('unexported self reference "@mokup/example/internal/helper"'),
+      expect.stringContaining('"@mokup/example-extra" is not declared'),
+    ])
+  })
+
+  it('ignores generated source strings, comments and nonliteral imports', () => {
+    expect(getPackedDependencyViolations(createLibrary('@mokup/runtime'), 'dist/graphql.mjs', `
+      const source = "import type { GraphqlOperation } from 'mokup/graphql'"
+      // import 'comment-only'
+      const generated = \`export * from 'generated-only'\`
+      const loaded = await import(modulePath)
+      const resolved = require.resolve(packageName + '/package.json')
+    `)).toEqual([])
+  })
+
   it('requires every declared export, declaration and CLI entry in the tarball', () => {
     const pkg = {
       ...createLibrary('@mokup/example'),

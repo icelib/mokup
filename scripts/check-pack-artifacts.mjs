@@ -1,8 +1,10 @@
 import { promises as fs } from 'node:fs'
+import { isBuiltin } from 'node:module'
 import path from 'node:path'
 import process from 'node:process'
 import { pathToFileURL } from 'node:url'
 import { execa } from 'execa'
+import ts from 'typescript'
 
 const rootDir = process.cwd()
 const tempPackDir = path.join(rootDir, '.tmp', 'release-pack')
@@ -71,6 +73,131 @@ function matchesDeclaredTarget(target, files) {
   const pattern = target.split('*').map(part => part.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('.*')
   const matcher = new RegExp(`^${pattern}$`)
   return [...files].some(file => matcher.test(file))
+}
+
+function collectImportSpecifiers(file, content) {
+  const source = ts.createSourceFile(file, content, ts.ScriptTarget.Latest, true)
+  const factories = new Set()
+  const moduleBindings = new Set()
+  const requireBindings = new Set(['require'])
+  const specifiers = new Set()
+
+  function visitAll(node, visitor) {
+    visitor(node)
+    ts.forEachChild(node, child => visitAll(child, visitor))
+  }
+
+  visitAll(source, (node) => {
+    if (!ts.isImportDeclaration(node) || !['module', 'node:module'].includes(node.moduleSpecifier.text)) {
+      return
+    }
+    const clause = node.importClause
+    if (clause?.name) {
+      moduleBindings.add(clause.name.text)
+    }
+    const bindings = clause?.namedBindings
+    if (bindings && ts.isNamespaceImport(bindings)) {
+      moduleBindings.add(bindings.name.text)
+    }
+    else if (bindings && ts.isNamedImports(bindings)) {
+      for (const binding of bindings.elements) {
+        if ((binding.propertyName ?? binding.name).text === 'createRequire') {
+          factories.add(binding.name.text)
+        }
+      }
+    }
+  })
+
+  function isRequireFactory(node) {
+    if (!node || !ts.isCallExpression(node)) {
+      return false
+    }
+    const callee = node.expression
+    return (ts.isIdentifier(callee) && factories.has(callee.text))
+      || (ts.isPropertyAccessExpression(callee) && ts.isIdentifier(callee.expression)
+        && moduleBindings.has(callee.expression.text) && callee.name.text === 'createRequire')
+  }
+
+  visitAll(source, (node) => {
+    if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) && isRequireFactory(node.initializer)) {
+      requireBindings.add(node.name.text)
+    }
+  })
+
+  function isRequire(node) {
+    return (ts.isIdentifier(node) && requireBindings.has(node.text)) || isRequireFactory(node)
+  }
+
+  function addLiteral(node) {
+    if (node && ts.isStringLiteralLike(node)) {
+      specifiers.add(node.text)
+    }
+  }
+
+  visitAll(source, (node) => {
+    if (ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) {
+      addLiteral(node.moduleSpecifier)
+    }
+    else if (ts.isImportTypeNode(node) && ts.isLiteralTypeNode(node.argument)) {
+      addLiteral(node.argument.literal)
+    }
+    else if (ts.isImportEqualsDeclaration(node) && ts.isExternalModuleReference(node.moduleReference)) {
+      addLiteral(node.moduleReference.expression)
+    }
+    else if (ts.isCallExpression(node)) {
+      const callee = node.expression
+      if (callee.kind === ts.SyntaxKind.ImportKeyword || isRequire(callee)
+        || (ts.isPropertyAccessExpression(callee) && callee.name.text === 'resolve' && isRequire(callee.expression))) {
+        addLiteral(node.arguments[0])
+      }
+    }
+  })
+  return specifiers
+}
+
+function hasExportTarget(value) {
+  return typeof value === 'string'
+    || (value && typeof value === 'object' && Object.values(value).some(hasExportTarget))
+}
+
+function isExportedSelfReference(pkg, specifier) {
+  const subpath = specifier === pkg.name ? '.' : `.${specifier.slice(pkg.name.length)}`
+  const exports = pkg.exports
+  if (!exports || typeof exports !== 'object' || Array.isArray(exports)
+    || !Object.keys(exports).some(key => key.startsWith('.'))) {
+    return subpath === '.' && hasExportTarget(exports)
+  }
+  if (Object.hasOwn(exports, subpath)) {
+    return hasExportTarget(exports[subpath])
+  }
+  const pattern = Object.keys(exports)
+    .filter(key => key.includes('*') && matchesDeclaredTarget(key, new Set([subpath])))
+    .sort((a, b) => b.indexOf('*') - a.indexOf('*') || b.length - a.length)[0]
+  return pattern !== undefined && hasExportTarget(exports[pattern])
+}
+
+function getPackedDependencyViolations(pkg, file, content) {
+  const dependencies = new Set([
+    ...Object.keys(pkg.dependencies ?? {}),
+    ...Object.keys(pkg.optionalDependencies ?? {}),
+    ...Object.keys(pkg.peerDependencies ?? {}),
+  ])
+  const violations = []
+  for (const specifier of collectImportSpecifiers(file, content)) {
+    if (isBuiltin(specifier) || /^(?:\.{1,2}\/|\/|#|[a-z][a-z\d+.-]*:)/i.test(specifier)) {
+      continue
+    }
+    const packageName = specifier.split('/').slice(0, specifier.startsWith('@') ? 2 : 1).join('/')
+    if (packageName === pkg.name) {
+      if (!isExportedSelfReference(pkg, specifier)) {
+        violations.push(`${pkg.name}: ${file} imports unexported self reference "${specifier}"`)
+      }
+    }
+    else if (!dependencies.has(packageName)) {
+      violations.push(`${pkg.name}: ${file} imports "${specifier}" but "${packageName}" is not declared in dependencies, optionalDependencies or peerDependencies`)
+    }
+  }
+  return violations
 }
 
 function getPackViolations(pkg, files, playgroundHtml = '') {
@@ -173,6 +300,12 @@ async function main() {
         : ''
       for (const result of results) {
         violations.push(...getPackViolations(pkg.manifest, result.files ?? [], playgroundHtml))
+        for (const { path: file } of result.files ?? []) {
+          if (typeof file === 'string' && /^dist\/.*\.(?:[cm]?js|d\.[cm]?ts)$/.test(file)) {
+            const content = await fs.readFile(path.join(pkg.dir, file), 'utf8')
+            violations.push(...getPackedDependencyViolations(pkg.manifest, file, content))
+          }
+        }
       }
     }
   }
@@ -195,4 +328,4 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   })
 }
 
-export { getPackViolations }
+export { getPackedDependencyViolations, getPackViolations }
