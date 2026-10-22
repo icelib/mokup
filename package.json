@@ -8,10 +8,10 @@
   "homepage": "https://mokup.icebreaker.top",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/sonofmagic/mokup.git"
+    "url": "git+https://github.com/icelib/mokup.git"
   },
   "bugs": {
-    "url": "https://github.com/sonofmagic/mokup/issues"
+    "url": "https://github.com/icelib/mokup/issues"
   },
   "engines": {
     "node": ">=24.15.0 <25"

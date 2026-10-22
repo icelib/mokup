@@ -105,7 +105,7 @@ in the CLI, where `mokup generate --allow-network` can be governed by CI.
 ## Deployment templates and package sharing
 
 Runnable examples for Node, Deno, Bun, Cloudflare Workers, Vercel, and Netlify
-live under [`examples/deploy`](https://github.com/sonofmagic/mokup/tree/main/examples/deploy).
+live under [`examples/deploy`](https://github.com/icelib/mokup/tree/main/examples/deploy).
 They all use `createFetchHandler` or `createMokupWorker` and can be replaced by
 a generated `mokup` bundle without changing the platform entry point.
 

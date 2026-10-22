@@ -6,7 +6,7 @@ Hi, I am [icebreaker](https://github.com/sonofmagic), a frontend developer and o
 
 I want to share a project I have been working on recently: Mokup, a file-based HTTP mocking tool.
 
-Project links: [GitHub](https://github.com/sonofmagic/mokup), docs site: http://mokup.icebreaker.top/
+Project links: [GitHub](https://github.com/icelib/mokup), docs site: http://mokup.icebreaker.top/
 
 ## What is Mokup
 

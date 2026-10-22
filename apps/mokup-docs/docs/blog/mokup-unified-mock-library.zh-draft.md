@@ -6,7 +6,7 @@
 
 这里向大家介绍一下我最近在做的一个项目：Mokup，一个基于文件路由的 HTTP Mock 工具。
 
-项目地址：[GitHub](https://github.com/sonofmagic/mokup) , 官网与文档：http://mokup.icebreaker.top/
+项目地址：[GitHub](https://github.com/icelib/mokup) , 官网与文档：http://mokup.icebreaker.top/
 
 ## Mokup 是什么
 

@@ -6,7 +6,7 @@
 <p align="center">
   <a href="https://mokup.icebreaker.top/">Website</a> ·
   <a href="https://mokup.icebreaker.top/__mokup">Playground</a> ·
-  <a href="https://github.com/sonofmagic/mokup">GitHub</a>
+  <a href="https://github.com/icelib/mokup">GitHub</a>
 </p>
 
 ## Why mokup
@@ -131,7 +131,7 @@ CI uses Node.js 24 LTS, and shared repository tooling uses repoctl. Published pa
 
 ## Contributors
 
-Thanks to [all contributors](https://github.com/sonofmagic/mokup/graphs/contributors)!
+Thanks to [all contributors](https://github.com/icelib/mokup/graphs/contributors)!
 
 ## Authors
 

@@ -93,7 +93,7 @@ CLI 负责文件和网络加载，CI 中可以用 `mokup generate --allow-networ
 ## 部署模板与 Mock 包共享
 
 Node、Deno、Bun、Cloudflare Workers、Vercel、Netlify 的可运行模板位于
-[`examples/deploy`](https://github.com/sonofmagic/mokup/tree/main/examples/deploy)。
+[`examples/deploy`](https://github.com/icelib/mokup/tree/main/examples/deploy)。
 它们统一使用 `createFetchHandler` 或 `createMokupWorker`，替换成
 `mokup` 生成的 bundle 时无需改变平台入口。
 
