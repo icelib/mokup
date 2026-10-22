@@ -1,5 +1,5 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
-import type { RouteTable } from '../../src/shared/types'
+import type { MokupPluginOptions, RouteTable } from '../../src/shared/types'
 import type { WebpackCompilation, WebpackCompiler, WebpackDevMiddleware } from '../../src/webpack/plugin/types'
 import { afterEach, beforeEach, expect, vi } from 'vitest'
 import { createMokupWebpackPlugin } from '../../src/webpack/plugin'
@@ -140,8 +140,8 @@ export function route(url: string): RouteTable {
   }]
 }
 
-export function plugin() {
-  return createMokupWebpackPlugin({ entries: { dir: 'mock', mode: 'sw', log: false }, playground: { enabled: true } })
+export function plugin(options: MokupPluginOptions = {}) {
+  return createMokupWebpackPlugin({ entries: { dir: 'mock', mode: 'sw', log: false }, playground: { enabled: true }, ...options })
 }
 
 export async function start(harness: ReturnType<typeof compilerHarness>, instance = plugin()) {

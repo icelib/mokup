@@ -1,7 +1,10 @@
+import type { HttpHandler, MockSession } from '@mokup/runtime/http'
 import type { resolveSwConfig, resolveSwUnregisterConfig } from '../../internal/core'
 import type { DiagnosticErrorMode, Logger, VitePluginOptions } from '../../shared/types'
 import type { BundleState } from './bundles'
 import type { PluginState } from './state'
+import { getRouteSession } from '@mokup/runtime'
+import { createHonoApp } from '../../internal/core'
 import { createBundleBuilder } from './bundles'
 import { resolveModuleFilePath, resolveRegisterPath, resolveRegisterScope } from './paths'
 import { createRouteRefresher } from './refresh'
@@ -21,6 +24,8 @@ function createWebpackBuild(options: {
   unregisterConfig: ReturnType<typeof resolveSwUnregisterConfig>
   logger: Logger
   errorOn?: DiagnosticErrorMode
+  session?: MockSession
+  handlers?: readonly HttpHandler[]
 }) {
   let diagnosticsSignature: string | null = null
 
@@ -85,8 +90,26 @@ function createWebpackBuild(options: {
       refreshRoutes,
       logger,
     })
-    await rebuildBundles()
-    return isActive() ? { state, bundles, root, base } : null
+    const candidateApp = state.app
+    try {
+      await rebuildBundles()
+      if (!isActive()) {
+        return null
+      }
+      if (options.session) {
+        // Publish the HTTP baseline only after every candidate bundle succeeds.
+        state.app = createHonoApp(state.serverRoutes, {
+          session: options.session,
+          ...(options.handlers ? { handlers: options.handlers } : {}),
+        })
+      }
+      return { state, bundles, root, base }
+    }
+    finally {
+      if (options.session) {
+        await getRouteSession(candidateApp)?.dispose()
+      }
+    }
   }
 }
 

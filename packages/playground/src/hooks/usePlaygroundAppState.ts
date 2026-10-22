@@ -85,6 +85,11 @@ export function usePlaygroundAppState() {
     requestUrl,
     totalCount,
     getRouteCount,
+    scenarioNames,
+    activeScenario,
+    scenarioError,
+    selectScenario,
+    resetScenario,
   } = usePlaygroundRequest(selected, { basePath })
 
   const selectedKey = computed(() => (selected.value ? routeKey(selected.value) : ''))
@@ -217,6 +222,9 @@ export function usePlaygroundAppState() {
     visibleCount,
     totalCount,
     requestMode,
+    scenarioNames,
+    activeScenario,
+    scenarioError,
     selected,
     requestUrl,
     queryText,
@@ -255,6 +263,8 @@ export function usePlaygroundAppState() {
     refs: workspaceRefs,
     getRouteCount,
     handleRefresh,
+    selectScenario,
+    resetScenario,
     toggleSidebar,
     setActiveGroup,
     setRouteMode,

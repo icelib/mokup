@@ -2,6 +2,8 @@ import { createPackageConfig } from '../../scripts/tsdown-config.ts'
 
 export default createPackageConfig({
   entries: [
+    'src/http',
+
     'src/index',
     'src/bundle',
     'src/config',

@@ -7,12 +7,14 @@ import type {
   RouteRule,
   VitePluginOptionsInput,
 } from 'mokup'
+import type { MockSession } from 'mokup/http'
 import type { VitePluginOptions } from 'mokup/vite'
 import type {
   WebpackConfig,
   WebpackPluginOptionsInput,
 } from 'mokup/webpack'
 import { defineConfig, defineHandler } from 'mokup'
+import { http, HttpResponse } from 'mokup/http'
 import mokup from 'mokup/vite'
 import { createMokupWebpackPlugin, mokupWebpack } from 'mokup/webpack'
 import { expectAssignable, expectType } from 'tsd'
@@ -44,10 +46,15 @@ expectAssignable<RouteDirectoryConfig | Promise<RouteDirectoryConfig>>(configRes
 
 const plugin = mokup(options)
 expectType<ReturnType<typeof mokup>>(plugin)
+expectType<MockSession>(plugin.api.getMockSession())
+expectType<AbortSignal>(plugin.api.getMockSession().signal)
+expectAssignable<MokupPluginOptions>({ handlers: [http.get('/native', () => HttpResponse.text('native'))], onUnhandled: 'error' })
 
 const webpackOptions: WebpackPluginOptionsInput = { entries: { dir: 'mock' } }
 const webpackPlugin = createMokupWebpackPlugin(webpackOptions)
 expectType<ReturnType<typeof createMokupWebpackPlugin>>(webpackPlugin)
+declare const compiler: Parameters<typeof webpackPlugin.api.getMockSession>[0]
+expectType<MockSession>(webpackPlugin.api.getMockSession(compiler))
 
 const withMokup = mokupWebpack(webpackOptions)
 const webpackConfig: WebpackConfig = withMokup({} as WebpackConfig)

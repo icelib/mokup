@@ -45,7 +45,9 @@ function resolveRequestBody(req: RuntimeRequest, contentType: string) {
 }
 
 function toFetchRequest(req: RuntimeRequest): Request {
-  const url = new URL(normalizePathname(req.path), 'http://mokup.local')
+  const url = new URL(req.url ?? normalizePathname(req.path), 'http://mokup.local')
+  url.pathname = normalizePathname(req.path)
+  url.search = ''
   appendQueryParams(url, req.query)
 
   const headers = new Headers()
@@ -57,7 +59,7 @@ function toFetchRequest(req: RuntimeRequest): Request {
   const contentType = headers.get('content-type') ?? ''
   const body = resolveRequestBody(req, contentType)
 
-  const init: RequestInit = { method, headers }
+  const init: RequestInit = { method, headers, ...(req.signal ? { signal: req.signal } : {}) }
   if (typeof body !== 'undefined' && method !== 'GET' && method !== 'HEAD') {
     init.body = body as BodyInit
   }

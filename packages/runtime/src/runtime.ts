@@ -1,19 +1,23 @@
-import type { Hono } from '@mokup/shared/hono'
-import type { RuntimeRule } from './module'
+import type { HttpHandler, HttpRequestContext, MockSession, UnhandledRequestPolicy } from './http/types'
+import type { ResolvedRouteApp } from './resolved-handlers'
 import type { CompiledRoute } from './runtime/routes'
 import type {
   Manifest,
   ManifestRoute,
-  MiddlewareHandler,
   RuntimeOptions,
   RuntimeRequest,
   RuntimeResult,
 } from './types'
+import { createHttpEvents } from './http/events'
+import { withAbort } from './http/resources'
+import { buildSession } from './http/session'
+import { compileManifestHandlers } from './manifest-handlers'
 import { normalizeMethod } from './normalize'
 import { matchRouteTokens, normalizePathname } from './router'
 import { buildApp } from './runtime/handlers'
-import { routeNeedsModuleBase, toFetchRequest } from './runtime/request'
-import { applyRouteOverrides, toRuntimeResult } from './runtime/response'
+import { snapshotManifest } from './runtime/manifest'
+import { toFetchRequest } from './runtime/request'
+import { toRuntimeResult } from './runtime/response'
 import { compileRoutes } from './runtime/routes'
 
 /**
@@ -29,13 +33,14 @@ import { compileRoutes } from './runtime/routes'
  *   manifest: { version: 1, routes: [] },
  * })
  */
-export async function createRuntimeApp(options: RuntimeOptions): Promise<Hono> {
-  const moduleCache = new Map<string, RuntimeRule[]>()
-  const middlewareCache = new Map<string, MiddlewareHandler[]>()
+export async function createRuntimeApp(options: RuntimeOptions): Promise<ResolvedRouteApp> {
   return await buildApp({
     manifest: options.manifest,
-    moduleCache,
-    middlewareCache,
+    moduleCache: new Map(),
+    middlewareCache: new Map(),
+    ...(options.handlers ? { handlers: options.handlers } : {}),
+    ...(options.onUnhandled ? { onUnhandled: options.onUnhandled } : {}),
+    ...(options.scenario ? { scenario: options.scenario } : {}),
     ...(typeof options.moduleBase !== 'undefined'
       ? { moduleBase: options.moduleBase }
       : {}),
@@ -60,15 +65,19 @@ export async function createRuntimeApp(options: RuntimeOptions): Promise<Hono> {
  */
 export function createRuntime(options: RuntimeOptions) {
   let manifestPromise: Promise<Manifest> | null = null
-  let appPromise: Promise<Hono> | null = null
   let compiledPromise: Promise<CompiledRoute[]> | null = null
-  const moduleCache = new Map<string, RuntimeRule[]>()
-  const middlewareCache = new Map<string, MiddlewareHandler[]>()
+  const emitter = createHttpEvents()
+  const lifetime = new AbortController()
+  let session: MockSession | undefined
+  let sessionPromise: Promise<MockSession> | undefined
+  let closed = false
+  const pendingControls: Array<(session: MockSession) => void> = []
 
   const getManifest = () => {
     if (!manifestPromise) {
       manifestPromise = Promise.resolve()
         .then(() => typeof options.manifest === 'function' ? options.manifest() : options.manifest)
+        .then(snapshotManifest)
         .catch((error: unknown) => {
           manifestPromise = null
           throw error
@@ -77,24 +86,41 @@ export function createRuntime(options: RuntimeOptions) {
     return manifestPromise
   }
 
-  const getApp = async () => {
-    if (!appPromise) {
-      appPromise = (async () => {
-        const manifest = await getManifest()
-        return buildApp({
-          manifest,
-          moduleCache,
-          middlewareCache,
-          ...(typeof options.moduleBase !== 'undefined'
-            ? { moduleBase: options.moduleBase }
-            : {}),
-          ...(typeof options.moduleMap !== 'undefined'
-            ? { moduleMap: options.moduleMap }
-            : {}),
-        })
-      })()
+  const ready = (): Promise<MockSession> => {
+    if (closed) {
+      return Promise.reject(new Error('Cannot use a closed mock runtime.'))
     }
-    return appPromise
+    sessionPromise ??= withAbort(getManifest().then(async (manifest) => {
+      const handlers = await compileManifestHandlers({ ...options, manifest })
+      if (closed) {
+        throw new Error('Cannot use a closed mock runtime.')
+      }
+      session = buildSession({
+        handlers: [...options.handlers ?? [], ...handlers],
+        ...(options.onUnhandled ? { onUnhandled: options.onUnhandled } : {}),
+        ...(options.scenario ? { scenario: options.scenario } : {}),
+      }, emitter)
+      for (const apply of pendingControls.splice(0)) {
+        apply(session)
+      }
+      return session
+    }), lifetime.signal).catch((error: unknown) => {
+      sessionPromise = undefined
+      throw error
+    })
+    return sessionPromise
+  }
+
+  const control = (apply: (session: MockSession) => void) => {
+    if (closed) {
+      throw new Error('Cannot use a closed mock runtime.')
+    }
+    if (session) {
+      apply(session)
+    }
+    else {
+      pendingControls.push(apply)
+    }
   }
 
   const getCompiled = () => {
@@ -127,26 +153,35 @@ export function createRuntime(options: RuntimeOptions) {
     return await findMatchedRoute(req) !== null
   }
 
-  const handle = async (req: RuntimeRequest): Promise<RuntimeResult | null> => {
-    const matchedRoute = await findMatchedRoute(req)
-    if (!matchedRoute) {
-      return null
-    }
-    if (
-      typeof options.moduleBase === 'undefined'
-      && routeNeedsModuleBase(matchedRoute, options.moduleMap)
-    ) {
-      throw new Error('moduleBase is required for relative module paths.')
-    }
-    const app = await getApp()
-    const response = await app.fetch(toFetchRequest(req))
-    const method = normalizeMethod(req.method) ?? 'GET'
-    const resolvedResponse = applyRouteOverrides(response, matchedRoute, method)
-    return await toRuntimeResult(resolvedResponse)
+  const fetch = async (request: Request, context?: HttpRequestContext): Promise<Response | null> => {
+    return await (await withAbort(ready(), request.signal)).handle(request, context) ?? null
+  }
+
+  const handle = async (req: RuntimeRequest, context?: HttpRequestContext): Promise<RuntimeResult | null> => {
+    const response = await fetch(toFetchRequest(req), context)
+    return response ? await toRuntimeResult(response) : null
   }
 
   return {
+    signal: lifetime.signal,
     hasRoute,
     handle,
+    fetch,
+    ready,
+    use: (...handlers: HttpHandler[]) => control(session => session.use(...handlers)),
+    resetHandlers: (...handlers: HttpHandler[]) => control(session => session.resetHandlers(...handlers)),
+    restoreHandlers: () => control(session => session.restoreHandlers()),
+    setOnUnhandled: (policy: UnhandledRequestPolicy) => control(session => session.setOnUnhandled(policy)),
+    get scenario() { return session?.scenario },
+    selectScenario: (name: string) => control(session => session.selectScenario(name)),
+    resetScenario: () => control(session => session.resetScenario()),
+    listHandlers: async () => (await ready()).listHandlers(),
+    events: emitter.events,
+    async close() {
+      closed = true
+      lifetime.abort(new DOMException('Mock runtime closed.', 'AbortError'))
+      pendingControls.length = 0
+      await session?.dispose()
+    },
   }
 }

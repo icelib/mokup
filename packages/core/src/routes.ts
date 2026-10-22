@@ -1,5 +1,5 @@
 import type { RouteToken } from '@mokup/runtime'
-import type { HttpMethod, ResolvedRoute, RouteRule } from './shared/types'
+import type { FileRouteRule, HttpMethod, ResolvedRoute } from './shared/types'
 
 import { compareRouteScore, parseRouteTemplate } from '@mokup/runtime'
 import { createRouteUtils } from '@mokup/shared/route-utils'
@@ -18,7 +18,7 @@ import { createRouteUtils } from '@mokup/shared/route-utils'
  *
  * const route = deriveRouteFromFile('/project/mock/ping.get.ts', '/project/mock', console)
  */
-const routeUtils = createRouteUtils<RouteToken, RouteRule, HttpMethod>({
+const routeUtils = createRouteUtils<RouteToken, FileRouteRule, HttpMethod>({
   parseRouteTemplate,
   compareRouteScore,
 })
@@ -57,7 +57,7 @@ export function deriveRouteFromFile(
  * })
  */
 export function resolveRule(params: {
-  rule: RouteRule
+  rule: FileRouteRule
   derivedTemplate: string
   derivedMethod?: HttpMethod
   prefix: string
@@ -79,6 +79,8 @@ export function resolveRule(params: {
         tokens: base.tokens,
         score: base.score,
         handler: rule.handler,
+        ...(rule.handlerType ? { handlerType: rule.handlerType } : {}),
+        ...(rule.once !== undefined ? { once: rule.once } : {}),
       }
       if (typeof rule.status === 'number') {
         route.status = rule.status

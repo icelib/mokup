@@ -1,8 +1,8 @@
-diff --git a/dist/commands-Bj0sX3R9.mjs b/dist/commands-Bj0sX3R9.mjs
+diff --git a/dist/commands-CB-HD_yZ.mjs b/dist/commands-CB-HD_yZ.mjs
 index 26cf7bf03d6ae3046db6d41e26e74f93a16636fd..67f127594c982e0f112266a3cf4236bf066775b6 100644
---- a/dist/commands-Bj0sX3R9.mjs
-+++ b/dist/commands-Bj0sX3R9.mjs
-@@ -4987,13 +4987,35 @@ async function writeReleaseState(request, key, state, revision) {
+--- a/dist/commands-CB-HD_yZ.mjs
++++ b/dist/commands-CB-HD_yZ.mjs
+@@ -5030,13 +5030,35 @@ async function writeReleaseState(request, key, state, revision, options = {}) {
  		await request("GET", `/git/ref/heads/${branch}`);
  	} catch (error) {
  		if (!missing(error)) throw error;

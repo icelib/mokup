@@ -9,11 +9,35 @@ describe('playground websocket helpers', () => {
     const increment = parseWsMessage('{"type":"increment","routeKey":"GET /a","total":2}')
     expect(increment?.type).toBe('increment')
 
+    const scenario = parseWsMessage('{"type":"scenario","scenario":{"names":["happy","error"],"active":"error"}}')
+    expect(scenario?.type).toBe('scenario')
+
+    const scenarioError = parseWsMessage('{"type":"scenario:error","message":"Unknown scenario"}')
+    expect(scenarioError?.type).toBe('scenario:error')
+
     const missingFields = parseWsMessage('{"type":"snapshot","total":1}')
     expect(missingFields).toBeNull()
 
     const invalid = parseWsMessage('not-json')
     expect(invalid).toBeNull()
+  })
+
+  it('preserves handler coverage and aggregate diagnostics from snapshots', () => {
+    const payload = parseWsMessage(JSON.stringify({
+      type: 'snapshot',
+      total: 2,
+      perRoute: { 'GET /a': 2 },
+      diagnostics: {
+        timeline: [],
+        handlers: [{ id: 'handler-1', method: 'GET', matcher: '/a', once: false, active: true, matched: 2, mocked: 2 }],
+        totals: { started: 2, completed: 2, mocked: 2, bypassed: 0, unhandled: 0, errors: 0 },
+      },
+    }))
+    expect(payload?.type).toBe('snapshot')
+    if (payload?.type === 'snapshot') {
+      expect(payload.diagnostics?.handlers[0]?.mocked).toBe(2)
+      expect(payload.diagnostics?.totals.completed).toBe(2)
+    }
   })
 
   it('resolves websocket URLs from base paths', () => {

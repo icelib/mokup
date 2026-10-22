@@ -1,3 +1,4 @@
+import type { HttpHandler, MockSession } from '@mokup/runtime/http'
 import type { Hono } from '@mokup/shared/hono'
 import type { resolvePlaygroundOptions } from '../dev/playground'
 import type { RouteConfigInfo, RouteIgnoreInfo, RouteSkipInfo } from '../dev/scanner'
@@ -21,6 +22,8 @@ function buildFetchServerApp(params: {
   logger: Logger
   onResponse?: (route: ResolvedRoute, response: Response) => void | Promise<void>
   wsHandler?: PlaygroundWsHandler
+  session?: MockSession
+  handlers?: readonly HttpHandler[]
 }): Hono {
   const app = new HonoApp({ strict: false })
   if (params.wsHandler && params.playground.enabled) {
@@ -40,10 +43,23 @@ function buildFetchServerApp(params: {
     config: params.playground,
     root: params.root,
   })
-  if (params.routes.length > 0) {
-    const mockAppOptions = params.onResponse ? { onResponse: params.onResponse } : {}
+  if (params.routes.length > 0 || params.session || params.handlers?.length) {
+    const mockAppOptions = {
+      ...(params.onResponse ? { onResponse: params.onResponse } : {}),
+      ...(params.session ? { session: params.session } : {}),
+      ...(params.handlers ? { handlers: params.handlers } : {}),
+    }
     const mockApp = createHonoApp(params.routes, mockAppOptions)
-    app.route('/', mockApp)
+    app.all('*', (c) => {
+      let executionCtx: Parameters<Hono['fetch']>[2]
+      try {
+        executionCtx = c.executionCtx
+      }
+      catch {
+        executionCtx = undefined
+      }
+      return mockApp.fetch(c.req.raw, c.env, executionCtx)
+    })
   }
   return app
 }

@@ -86,6 +86,13 @@ for (const runtime of ['node', 'worker'] as const) {
           body: { source: 'typescript', query: 'preview' },
           middleware: 'yes',
         })
+        for (const mode of ['once', 'first', 'last']) {
+          expect(await readMock(page, 'native/42')).toEqual({
+            status: mode === 'once' ? 201 : 200,
+            body: { id: '42', mode },
+            middleware: 'yes',
+          })
+        }
         // Server fallback is disabled; only the native browser SW can return mock data.
         const network = await fetch(`${fixture.url}api/value`)
         expect(network.status).toBe(207)

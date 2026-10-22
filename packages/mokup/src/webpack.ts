@@ -22,6 +22,8 @@ export type {
   VitePluginOptionsInput,
 } from './shared/types.js'
 
+export type { MokupWebpackPlugin } from './webpack/plugin.js'
+
 /**
  * Webpack plugin options (alias of MokupPluginOptions).
  *

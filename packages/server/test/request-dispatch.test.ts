@@ -1,14 +1,20 @@
-import type { RuntimeRequest } from '@mokup/runtime'
 import { PassThrough } from 'node:stream'
+import { createRuntime } from '@mokup/runtime'
+import { http, HttpResponse } from '@mokup/runtime/http'
 import { describe, expect, it, vi } from 'vitest'
 import { createConnectMiddleware } from '../src/connect'
 import { createFetchHandler } from '../src/fetch'
 import { handleFetchRequest, handleNodeRequest } from '../src/internal/handle-request'
 
 function runtime(matched: boolean) {
+  const engine = createRuntime({
+    manifest: { version: 1, routes: [] },
+    handlers: matched ? [http.all('*', async ({ request }) => HttpResponse.json(await request.json()))] : [],
+  })
   return {
-    hasRoute: vi.fn(async (_request: Pick<RuntimeRequest, 'method' | 'path'>) => matched),
-    handle: vi.fn(async (request: RuntimeRequest) => ({ status: 200, headers: {}, body: JSON.stringify(request.body) })),
+    ...engine,
+    handle: vi.fn(engine.handle),
+    fetch: vi.fn(engine.fetch),
   }
 }
 
@@ -26,47 +32,41 @@ describe('request dispatch before reading bodies', () => {
     }
     const engine = runtime(false)
     expect(await handleNodeRequest(engine, req)).toBeNull()
-    expect(engine.hasRoute).toHaveBeenCalledExactlyOnceWith({
-      method: 'POST',
-      path: '/native',
-    })
-    expect(engine.handle).not.toHaveBeenCalled()
+    expect(engine.handle).toHaveBeenCalledOnce()
     expect(body).not.toHaveBeenCalled()
     expect(req.on.mock.calls.some(([event]) => event === 'data' || event === 'end')).toBe(false)
   })
 
   it('waits for route ownership before reading a matched raw Node stream', async () => {
-    const engine = runtime(true)
-    let finishMatch!: (matched: boolean) => void
+    let finishMatch!: () => void
     let matchingStarted!: () => void
     const started = new Promise<void>((resolve) => {
       matchingStarted = resolve
     })
-    engine.hasRoute.mockImplementationOnce(() => new Promise((resolve) => {
-      finishMatch = resolve
-      matchingStarted()
-    }))
+    const engine = createRuntime({
+      manifest: async () => {
+        await new Promise<void>((resolve) => {
+          finishMatch = resolve
+          matchingStarted()
+        })
+        return { version: 1, routes: [] }
+      },
+      handlers: [http.post('/mock/:id', async ({ request, params }) => HttpResponse.json({ ...await request.json(), id: params.id }))],
+    })
     const req = Object.assign(new PassThrough(), {
       method: 'POST',
       url: '/mock/42',
       headers: { 'content-type': 'application/json' },
+      body: undefined as unknown,
     })
     try {
       const pending = handleNodeRequest(engine, req)
       await started
       expect(req.listenerCount('data')).toBe(0)
       req.end('{"ok":true}')
-      finishMatch(true)
-      expect(await pending).toMatchObject({ body: '{"ok":true}' })
-      expect(engine.handle).toHaveBeenCalledExactlyOnceWith({
-        method: 'POST',
-        path: '/mock/42',
-        query: {},
-        headers: { 'content-type': 'application/json' },
-        body: { ok: true },
-        rawBody: '{"ok":true}',
-        rawBodyBytes: new TextEncoder().encode('{"ok":true}'),
-      })
+      finishMatch()
+      expect(await pending).toMatchObject({ body: '{"ok":true,"id":"42"}' })
+      expect(req.body).toEqual(new TextEncoder().encode('{"ok":true}'))
     }
     finally {
       req.destroy()
@@ -76,8 +76,8 @@ describe('request dispatch before reading bodies', () => {
   it.each([false, true])('keeps already parsed Node bodies and explicit overrides: %s', async (override) => {
     const engine = runtime(true)
     const req = { method: 'POST', url: '/mock', body: { source: 'request' }, on: vi.fn() }
-    await handleNodeRequest(engine, req, override ? { source: 'override' } : undefined)
-    expect(engine.handle.mock.calls[0]?.[0].body).toEqual({ source: override ? 'override' : 'request' })
+    const result = await handleNodeRequest(engine, req, override ? { source: 'override' } : undefined)
+    expect(JSON.parse(result!.body as string)).toEqual({ source: override ? 'override' : 'request' })
     expect(req.on.mock.calls.some(([event]) => event === 'data' || event === 'end')).toBe(false)
   })
 
@@ -85,20 +85,19 @@ describe('request dispatch before reading bodies', () => {
     const engine = runtime(false)
     const req = { method: 'POST', url: '/', headers: { host: 'bad/host' }, on: vi.fn() }
     await expect(handleNodeRequest(engine, req)).rejects.toMatchObject({ status: 400, statusCode: 400 })
-    expect(engine.hasRoute).not.toHaveBeenCalled()
     expect(engine.handle).not.toHaveBeenCalled()
     expect(req.on).not.toHaveBeenCalled()
   })
 
   it('leaves a Fetch body untouched even when matching fails with an error', async () => {
-    const engine = runtime(true)
-    engine.hasRoute.mockRejectedValueOnce(new Error('Manifest failed'))
+    const engine = createRuntime({ manifest: () => {
+      throw new Error('Manifest failed')
+    } })
     const request = new Request('http://localhost/mock', { method: 'POST', body: 'payload' })
     await expect(handleFetchRequest(engine, request)).rejects.toThrow('Manifest failed')
     expect(request.bodyUsed).toBe(false)
     expect(request.body?.locked).toBe(false)
     expect(await request.text()).toBe('payload')
-    expect(engine.handle).not.toHaveBeenCalled()
   })
 
   it('does not clone or read an unmatched Fetch request', async () => {

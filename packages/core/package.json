@@ -145,6 +145,11 @@
       "types": "./dist/shared/utils.d.ts",
       "import": "./dist/shared/utils.mjs",
       "default": "./dist/shared/utils.mjs"
+    },
+    "./http": {
+      "types": "./dist/http.d.ts",
+      "import": "./dist/http.mjs",
+      "default": "./dist/http.mjs"
     }
   },
   "publishConfig": {
@@ -232,6 +237,9 @@
       ],
       "shared/utils": [
         "dist/shared/utils.d.ts"
+      ],
+      "http": [
+        "dist/http.d.ts"
       ]
     }
   },

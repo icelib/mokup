@@ -1,4 +1,5 @@
 import type { RouteToken } from '@mokup/runtime'
+import type { HttpHandler, HttpRouteRule, UnhandledRequestPolicy } from '@mokup/runtime/http'
 import type { DiagnosticErrorMode, MockEntryOptions, PlaygroundOptionsInput } from '@mokup/shared'
 import type { Context, MiddlewareHandler } from '@mokup/shared/hono'
 
@@ -83,6 +84,8 @@ export type RouteResponse = RouteStaticResponse | RequestHandler
  * }
  */
 export interface RouteRule {
+  handlerType?: 'hono'
+  once?: boolean
   /** Handler for the route. */
   handler: RouteResponse
   /**
@@ -110,6 +113,8 @@ export interface RouteRule {
    */
   delay?: number
 }
+
+export type FileRouteRule = RouteRule | HttpRouteRule
 
 /**
  * Runtime mode for Vite integration.
@@ -338,6 +343,10 @@ export interface VitePluginOptions extends MockEntryOptions {
  * }
  */
 export interface MokupPluginOptions {
+  /** Native HTTP definitions included in the server session's initial handlers. */
+  handlers?: readonly HttpHandler[]
+  /** Policy for requests that reach the mock middleware without a response. */
+  onUnhandled?: UnhandledRequestPolicy
   /**
    * One or more entries to scan for mocks.
    *
@@ -390,6 +399,8 @@ export type VitePluginOptionsInput = MokupPluginOptions
  * }
  */
 export interface ResolvedRoute {
+  handlerType?: 'hono' | 'http'
+  once?: boolean
   file: string
   template: string
   method: HttpMethod

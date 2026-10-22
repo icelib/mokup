@@ -1,4 +1,5 @@
 import { parseRouteTemplate } from '@mokup/runtime'
+import { HttpResponse } from '@mokup/runtime/http'
 import { describe, expect, it, vi } from 'vitest'
 import { createHonoApp } from '../src/dev/hono'
 
@@ -16,6 +17,25 @@ function makeRoute(url: string, handler: any, extra: Record<string, unknown> = {
 }
 
 describe('dev hono app', () => {
+  it('preserves HttpResponse status, headers and body after Response replacement', async () => {
+    const NativeResponse = Response
+    vi.stubGlobal('Response', class ReplacementResponse extends NativeResponse {})
+    try {
+      const app = createHonoApp([{
+        ...makeRoute('/typed', () => HttpResponse.text('typed', { status: 202 })),
+        method: 'GET',
+        headers: { 'x-file-route': 'kept' },
+      }])
+      const response = await app.fetch(new Request('http://mokup.local/typed'))
+      expect(response.status).toBe(202)
+      expect(response.headers.get('x-file-route')).toBe('kept')
+      expect(await response.text()).toBe('typed')
+    }
+    finally {
+      vi.unstubAllGlobals()
+    }
+  })
+
   it('normalizes handler values and applies overrides', async () => {
     vi.useFakeTimers()
     const onResponse = vi.fn(() => {

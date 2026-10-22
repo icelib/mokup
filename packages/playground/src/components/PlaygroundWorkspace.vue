@@ -53,6 +53,9 @@ const props = defineProps<{
   visibleCount: number
   totalCount: number
   requestMode: 'server' | 'sw' | 'sw-registering'
+  scenarioNames: string[]
+  activeScenario: string
+  scenarioError: string
   selected: PlaygroundRoute | null
   requestUrl: string
   queryText: string
@@ -86,6 +89,8 @@ const props = defineProps<{
   configImpactRoutes: PlaygroundConfigImpactRoute[]
   configStatusMap: Map<string, 'enabled' | 'disabled'>
   onRefresh: () => void
+  onSelectScenario: (name: string) => void
+  onResetScenario: () => void
   onToggleCollapse: () => void
   onSelectGroup: (key: string) => void
   onSetRouteMode: (mode: 'active' | 'disabled' | 'ignored') => void
@@ -188,7 +193,12 @@ const props = defineProps<{
             :visible-count="props.visibleCount"
             :total-count="props.totalCount"
             :request-mode="props.requestMode"
+            :scenario-names="props.scenarioNames"
+            :active-scenario="props.activeScenario"
+            :scenario-error="props.scenarioError"
             @refresh="props.onRefresh"
+            @select-scenario="props.onSelectScenario"
+            @reset-scenario="props.onResetScenario"
           />
 
           <div class="mt-3 flex-1 min-h-0 overflow-auto">

@@ -2,6 +2,7 @@ export type {
   Context,
   DiagnosticCategory,
   DiagnosticErrorMode,
+  FileRouteRule,
   HookErrorPolicy,
   HttpMethod,
   Logger,

@@ -1,7 +1,9 @@
+import type { MockSession } from '@mokup/runtime/http'
 import type { PreviewServer, ViteDevServer } from 'vite'
 import type { MokupPluginOptions } from '../shared/types'
 
 import type {
+  WebpackCompiler,
   WebpackPluginInstance,
 } from './plugin/types'
 import { cwd } from 'node:process'
@@ -25,9 +27,14 @@ import { createSwMiddleware } from './plugin/sw-middleware'
 const pluginName = 'mokup:webpack'
 const lifecycleBaseName = 'mokup-sw-lifecycle.js'
 
+export interface MokupWebpackPlugin extends WebpackPluginInstance {
+  api: { getMockSession: (compiler: WebpackCompiler) => MockSession }
+}
+
 export function createMokupWebpackPlugin(
   options: MokupPluginOptions = {},
-): WebpackPluginInstance {
+): MokupWebpackPlugin {
+  const controllers = new WeakMap<WebpackCompiler, ReturnType<typeof createWebpackController>>()
   const normalizedOptions = normalizeMokupOptions(options)
   const optionList = normalizeOptions(normalizedOptions)
   const logEnabled = optionList.every(entry => entry.log !== false)
@@ -58,6 +65,15 @@ export function createMokupWebpackPlugin(
     throw swDiagnosticError
   }
   return {
+    api: {
+      getMockSession(compiler) {
+        const session = controllers.get(compiler)?.getMockSession()
+        if (!session) {
+          throw new Error('Start the Mokup Webpack compiler before accessing its HTTP session; closed compilers cannot expose it.')
+        }
+        return session
+      },
+    },
     apply(compiler) {
       const root = compiler.context ?? cwd()
       const assetsDir = resolveAssetsDir(compiler.options.output?.assetModuleFilename)
@@ -73,8 +89,11 @@ export function createMokupWebpackPlugin(
         unregisterConfig,
         watchEnabled,
         logger,
+        ...(normalizedOptions.handlers ? { handlers: normalizedOptions.handlers } : {}),
+        ...(normalizedOptions.onUnhandled ? { onUnhandled: normalizedOptions.onUnhandled } : {}),
         ...(normalizedOptions.errorOn ? { errorOn: normalizedOptions.errorOn } : {}),
       })
+      controllers.set(compiler, controller)
       const playgroundMiddleware = createPlaygroundMiddleware({
         getRoutes: () => controller.getSnapshot()?.state.routes ?? [],
         getDisabledRoutes: () => controller.getSnapshot()?.state.disabledRoutes ?? [],
@@ -88,7 +107,11 @@ export function createMokupWebpackPlugin(
         resolvePlaygroundDist,
       })
       const swMiddleware = createSwMiddleware({ swConfig, getSession: controller.getSession, getBase })
-      const mockMiddleware = createMiddleware(() => controller.getSnapshot()?.state.app ?? null, logger)
+      const mockMiddleware = createMiddleware(
+        () => controller.getRequestSession() ? controller.getSnapshot()?.state.app ?? null : null,
+        logger,
+        { getSession: controller.getRequestSession },
+      )
 
       compiler.hooks.beforeCompile.tapPromise(pluginName, async () => {
         await controller.ensureBuilt()

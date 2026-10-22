@@ -11,10 +11,12 @@ import { promisify } from 'node:util'
 import { smokeClientRequests } from './runtime-client-smoke.mjs'
 import { smokeExternalHandlers } from './runtime-external-handlers-smoke.mjs'
 import { smokeModuleRefresh } from './runtime-module-smoke.mjs'
+import { smokeNetworkInterception } from './runtime-network-smoke.mjs'
 import { smokeRequestBytes } from './runtime-request-bytes-smoke.mjs'
 import { smokeRequestTargets } from './runtime-request-target-smoke.mjs'
 import { smokeResponseContracts } from './runtime-response-smoke.mjs'
 import { smokeRouteGrammar } from './runtime-route-smoke.mjs'
+import { smokeDeployedSessions } from './runtime-session-smoke.mjs'
 import { smokeTypeScriptModules, smokeTypeScriptSymlinks } from './runtime-typescript-smoke.mjs'
 
 const execFileAsync = promisify(execFile)
@@ -79,9 +81,11 @@ async function prepareConsumer(root, directory, packages) {
   await fs.copyFile(new URL('./runtime-client-smoke.mjs', import.meta.url), path.join(directory, 'runtime-client-smoke.mjs'))
   await fs.copyFile(new URL('./runtime-external-handlers-smoke.mjs', import.meta.url), path.join(directory, 'runtime-external-handlers-smoke.mjs'))
   await fs.copyFile(new URL('./runtime-module-smoke.mjs', import.meta.url), path.join(directory, 'runtime-module-smoke.mjs'))
+  await fs.copyFile(new URL('./runtime-network-smoke.mjs', import.meta.url), path.join(directory, 'runtime-network-smoke.mjs'))
   await fs.copyFile(new URL('./runtime-request-bytes-smoke.mjs', import.meta.url), path.join(directory, 'runtime-request-bytes-smoke.mjs'))
   await fs.copyFile(new URL('./runtime-request-target-smoke.mjs', import.meta.url), path.join(directory, 'runtime-request-target-smoke.mjs'))
   await fs.copyFile(new URL('./runtime-route-smoke.mjs', import.meta.url), path.join(directory, 'runtime-route-smoke.mjs'))
+  await fs.copyFile(new URL('./runtime-session-smoke.mjs', import.meta.url), path.join(directory, 'runtime-session-smoke.mjs'))
   await fs.copyFile(new URL('./runtime-typescript-smoke.mjs', import.meta.url), path.join(directory, 'runtime-typescript-smoke.mjs'))
   // Install only tarball dependencies on the build Node; no workspace tooling or optional peers.
   await run('npm', ['install', '--omit=dev', '--legacy-peer-deps', '--ignore-scripts', '--no-audit', '--no-fund'], directory)
@@ -96,7 +100,13 @@ async function importPublicEntries(directory) {
     for (const subpath of Object.keys(installed.exports ?? {})) {
       assert.ok(subpath.startsWith('.') && !subpath.includes('*'), `Unsupported export ${pkg.name}/${subpath}`)
       const specifier = subpath === '.' ? pkg.name : `${pkg.name}${subpath.slice(1)}`
-      await import(specifier)
+      if (pkg.name === 'mokup' && subpath === './mockServiceWorker.js') {
+        const asset = await fs.readFile(fileURLToPath(import.meta.resolve(specifier)), 'utf8')
+        assert.ok(asset.includes('mokup:connect'), 'Expected the standalone Service Worker asset')
+      }
+      else {
+        await import(specifier)
+      }
       entries++
     }
   }
@@ -185,13 +195,48 @@ async function smokePlaygroundWebSocket(directory) {
     const address = server.address()
     assert.ok(address && typeof address === 'object')
     socket = new WebSocket(`ws://127.0.0.1:${address.port}/__mokup/ws`)
-    const readMessage = async () => {
-      const [data] = await once(socket, 'message', { signal })
-      return JSON.parse(data.toString())
+    const messages = []
+    const readers = []
+    const onMessage = (data) => {
+      const message = JSON.parse(data.toString())
+      const reader = readers.shift()
+      if (reader) {
+        reader.resolve(message)
+      }
+      else {
+        messages.push(message)
+      }
     }
-    assert.deepEqual(await readMessage(), { type: 'snapshot', total: 0, perRoute: {} })
+    const onError = (error) => {
+      for (const reader of readers.splice(0)) {
+        reader.reject(error)
+      }
+    }
+    socket.on('message', onMessage)
+    socket.on('error', onError)
+    const readMessage = () => {
+      if (messages.length) {
+        return Promise.resolve(messages.shift())
+      }
+      return new Promise((resolve, reject) => {
+        readers.push({ resolve, reject })
+      })
+    }
+    const snapshot = await readMessage()
+    assert.equal(snapshot.type, 'snapshot')
+    assert.equal(snapshot.total, 0)
+    assert.deepEqual(snapshot.perRoute, {})
+    assert.deepEqual(snapshot.diagnostics?.timeline, [])
+    const incrementPromise = (async () => {
+      while (true) {
+        const message = await readMessage()
+        if (message.type === 'increment') {
+          return message
+        }
+      }
+    })()
     const [increment, response] = await Promise.all([
-      readMessage(),
+      incrementPromise,
       fetch(`http://127.0.0.1:${address.port}/hello`, { signal }),
     ])
     assert.equal(response.status, 200)
@@ -200,6 +245,8 @@ async function smokePlaygroundWebSocket(directory) {
   }
   finally {
     pending.abort()
+    socket?.removeAllListeners('message')
+    socket?.removeAllListeners('error')
     // Terminating an incomplete handshake emits an expected error during cleanup.
     if (socket?.readyState === WebSocket.CONNECTING) {
       socket.once('error', () => {})
@@ -235,8 +282,10 @@ async function main() {
     await smokeBuiltHandlers(directory)
     await smokePlaygroundWebSocket(directory)
     await smokeClientRequests()
+    await smokeNetworkInterception()
+    await smokeDeployedSessions()
     await smokeModuleRefresh(directory)
-    process.stdout.write(`runtime compatibility ok (Node ${process.version}, ${entries} exports, CLI check/build, external handlers and middleware, HTTP/HEAD/cookies/binary/bodyless responses, HTTP request targets, request body fallthrough, binary requests and multipart uploads, WebSocket metrics, Fetch Request, Query HTTP/JSON and Axios URL semantics, native module refresh, CommonJS/ESM TypeScript, literal route grammar)\n`)
+    process.stdout.write(`runtime compatibility ok (Node ${process.version}, ${entries} exports, CLI check/build, external handlers and middleware, HTTP/HEAD/cookies/binary/bodyless responses, HTTP request targets, request body fallthrough, binary requests and multipart uploads, WebSocket metrics, Fetch Request, Query HTTP/JSON and Axios URL semantics, outgoing Fetch/ClientRequest interception and cancellation, isolated boundaries, native module refresh, CommonJS/ESM TypeScript, literal route grammar)\n`)
     return
   }
   const args = process.argv.slice(2)

@@ -124,6 +124,14 @@ export function createRouteUtils<
     warn?: (message: string) => void
     build?: (base: DerivedRoute<TToken, TMethod>, rule: TRule) => TOutput
   }): TOutput | null {
+    const rule = input.rule
+    const handlerType = 'handlerType' in rule ? rule.handlerType : undefined
+    if ((handlerType !== undefined && handlerType !== 'hono' && handlerType !== 'http')
+      || (handlerType === 'http' && typeof rule.handler !== 'function')
+      || ('once' in rule && rule.once !== undefined && typeof rule.once !== 'boolean')) {
+      input.warn?.(`Skip mock with invalid handlerType, native resolver or once metadata: ${input.file}`)
+      return null
+    }
     const method = input.derivedMethod
     if (!method) {
       input.warn?.(`Skip mock without method suffix: ${input.file}`)

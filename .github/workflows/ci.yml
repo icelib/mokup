@@ -85,6 +85,15 @@ jobs:
       - name: Test
         run: pnpm test
 
+      - name: Provider adapter matrix
+        run: pnpm run test:provider-matrix
+
+      - name: Deployment template smoke checks
+        run: pnpm run test:deployment-templates
+
+      - name: Mock package contract
+        run: pnpm run test:mock-package-contract
+
       - name: Type Tests
         run: pnpm run test:types
 
@@ -103,7 +112,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        node-version: [20.19.0, 22.12.0]
+        node-version: [20.19.0, 22.12.0, 24]
     env:
       HUSKY: 0
     steps:
@@ -207,12 +216,16 @@ jobs:
           path: ~/.cache/ms-playwright
           key: ${{ runner.os }}-playwright-${{ hashFiles('pnpm-lock.yaml') }}
 
-      - name: Install Playwright browser
-        if: steps.playwright-cache.outputs.cache-hit != 'true'
-        run: pnpm exec playwright install chrome --with-deps
+      # Browser binaries use the cache; Linux system libraries still need setup
+      # on every fresh runner, including when the browser cache is restored.
+      - name: Install Playwright browsers and system dependencies
+        run: pnpm exec playwright install chrome firefox webkit --with-deps
 
       - name: E2E Tests
         run: pnpm run test:e2e:serial
+
+      - name: Browser network conformance
+        run: pnpm run test:conformance
 
       - name: Upload Playwright report
         if: failure()

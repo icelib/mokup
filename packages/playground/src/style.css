@@ -1,4 +1,8 @@
-@import 'https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600&family=Space+Grotesk:wght@400;500;600;700&display=swap';
+@import '@fontsource/space-grotesk/latin-400.css';
+@import '@fontsource/space-grotesk/latin-500.css';
+@import '@fontsource/space-grotesk/latin-600.css';
+@import '@fontsource/space-grotesk/latin-700.css';
+@import '@fontsource/fraunces/latin-600.css';
 @import 'tailwindcss';
 @config '../tailwind.config.ts';
 @custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
@@ -210,8 +214,10 @@
   }
 
   .pg-highlight {
-    @apply rounded-sm bg-pg-accent/15 px-0.5 text-pg-text-strong;
+    @apply rounded-sm px-0.5;
 
+    color: var(--color-pg-text-strong);
+    background-color: color-mix(in oklab, var(--color-pg-accent) 15%, transparent);
     box-shadow: inset 0 -1px 0 var(--color-pg-accent-ring);
   }
 

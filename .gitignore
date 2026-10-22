@@ -9,6 +9,7 @@ node_modules
 coverage
 playwright-report
 test-results
+test-results-conformance
 
 # next.js
 .next/

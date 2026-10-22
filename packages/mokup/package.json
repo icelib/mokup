@@ -65,6 +65,82 @@
       "types": "./dist/sw.d.ts",
       "import": "./dist/sw.mjs",
       "default": "./dist/sw.mjs"
+    },
+    "./http": {
+      "types": "./dist/http.d.ts",
+      "import": "./dist/http.mjs",
+      "default": "./dist/http.mjs"
+    },
+    "./node": {
+      "types": "./dist/node.d.ts",
+      "import": "./dist/node.mjs",
+      "default": "./dist/node.mjs"
+    },
+    "./browser": {
+      "types": "./dist/browser.d.ts",
+      "import": "./dist/browser.mjs",
+      "default": "./dist/browser.mjs"
+    },
+    "./scenario": {
+      "types": "./dist/scenario.d.ts",
+      "import": "./dist/scenario.mjs",
+      "default": "./dist/scenario.mjs"
+    },
+    "./recording": {
+      "types": "./dist/recording.d.ts",
+      "import": "./dist/recording.mjs",
+      "default": "./dist/recording.mjs"
+    },
+    "./contract": {
+      "types": "./dist/contract.d.ts",
+      "import": "./dist/contract.mjs",
+      "default": "./dist/contract.mjs"
+    },
+    "./graphql": {
+      "types": "./dist/graphql.d.ts",
+      "import": "./dist/graphql.mjs",
+      "default": "./dist/graphql.mjs"
+    },
+    "./sse": {
+      "types": "./dist/sse.d.ts",
+      "import": "./dist/sse.mjs",
+      "default": "./dist/sse.mjs"
+    },
+    "./mockServiceWorker.js": "./dist/network/mockServiceWorker.mjs",
+    "./ws": {
+      "types": "./dist/ws.d.ts",
+      "import": "./dist/ws.mjs",
+      "default": "./dist/ws.mjs"
+    },
+    "./testing": {
+      "types": "./dist/testing.d.ts",
+      "import": "./dist/testing.mjs",
+      "default": "./dist/testing.mjs"
+    },
+    "./diagnostics": {
+      "types": "./dist/diagnostics.d.ts",
+      "import": "./dist/diagnostics.mjs",
+      "default": "./dist/diagnostics.mjs"
+    },
+    "./plugin": {
+      "types": "./dist/plugin.d.ts",
+      "import": "./dist/plugin.mjs",
+      "default": "./dist/plugin.mjs"
+    },
+    "./devframe": {
+      "types": "./dist/devframe.d.ts",
+      "import": "./dist/devframe.mjs",
+      "default": "./dist/devframe.mjs"
+    },
+    "./mcp": {
+      "types": "./dist/mcp.d.ts",
+      "import": "./dist/mcp.mjs",
+      "default": "./dist/mcp.mjs"
+    },
+    "./mcp/stdio": {
+      "types": "./dist/mcp-stdio.d.ts",
+      "import": "./dist/mcp-stdio.mjs",
+      "default": "./dist/mcp-stdio.mjs"
     }
   },
   "publishConfig": {
@@ -104,6 +180,51 @@
       ],
       "sw": [
         "dist/sw.d.ts"
+      ],
+      "http": [
+        "dist/http.d.ts"
+      ],
+      "node": [
+        "dist/node.d.ts"
+      ],
+      "browser": [
+        "dist/browser.d.ts"
+      ],
+      "scenario": [
+        "dist/scenario.d.ts"
+      ],
+      "recording": [
+        "dist/recording.d.ts"
+      ],
+      "contract": [
+        "dist/contract.d.ts"
+      ],
+      "graphql": [
+        "dist/graphql.d.ts"
+      ],
+      "sse": [
+        "dist/sse.d.ts"
+      ],
+      "ws": [
+        "dist/ws.d.ts"
+      ],
+      "testing": [
+        "dist/testing.d.ts"
+      ],
+      "diagnostics": [
+        "dist/diagnostics.d.ts"
+      ],
+      "plugin": [
+        "dist/plugin.d.ts"
+      ],
+      "devframe": [
+        "dist/devframe.d.ts"
+      ],
+      "mcp": [
+        "dist/mcp.d.ts"
+      ],
+      "mcp/stdio": [
+        "dist/mcp-stdio.d.ts"
       ]
     }
   },
@@ -153,7 +274,9 @@
     "@mokup/runtime": "workspace:*",
     "@mokup/server": "workspace:*",
     "@mokup/shared": "workspace:*",
-    "picocolors": "^1.1.1"
+    "@mswjs/interceptors": "^0.41.9",
+    "picocolors": "^1.1.1",
+    "tough-cookie": "^6.0.2"
   },
   "devDependencies": {
     "vite": "catalog:"

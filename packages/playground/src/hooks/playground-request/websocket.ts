@@ -1,13 +1,67 @@
+import type { RequestDecision } from './history'
+
 type RouteCounts = Record<string, number>
+interface PlaygroundScenario {
+  names: string[]
+  active: string
+}
+interface PlaygroundHandlerCoverage {
+  id: string
+  method: string
+  matcher: string
+  once: boolean
+  active: boolean
+  matched: number
+  mocked: number
+}
+interface PlaygroundDiagnosticsTotals {
+  started: number
+  completed: number
+  mocked: number
+  bypassed: number
+  unhandled: number
+  errors: number
+}
+interface PlaygroundWsDiagnostic {
+  type: 'diagnostic'
+  entry: {
+    sequence: number
+    timestamp: number
+    type: string
+    requestId: string
+    method: string
+    url: string
+    protocol?: 'graphql' | 'sse' | 'websocket'
+    connectionId?: string
+    matcher?: string
+    operation?: string
+    handlerId?: string
+    status?: number
+    decisionChain?: RequestDecision[]
+    error?: { name: string, message: string }
+  }
+  handlers: PlaygroundHandlerCoverage[]
+  totals: PlaygroundDiagnosticsTotals
+}
 interface PlaygroundWsSnapshot {
   type: 'snapshot'
   total: number
   perRoute: RouteCounts
+  scenario?: PlaygroundScenario
+  diagnostics?: Omit<PlaygroundWsDiagnostic, 'type' | 'entry'> & { timeline: PlaygroundWsDiagnostic['entry'][] }
 }
 interface PlaygroundWsIncrement {
   type: 'increment'
   routeKey: string
   total: number
+}
+interface PlaygroundWsScenario {
+  type: 'scenario'
+  scenario: PlaygroundScenario
+}
+interface PlaygroundWsScenarioError {
+  type: 'scenario:error'
+  message: string
 }
 
 function isPlaygroundWsEnabled() {
@@ -45,11 +99,20 @@ function resolvePlaygroundWsUrl(basePath: string) {
 
 function parseWsMessage(data: string) {
   try {
-    const parsed = JSON.parse(data) as PlaygroundWsSnapshot | PlaygroundWsIncrement
+    const parsed = JSON.parse(data) as PlaygroundWsSnapshot | PlaygroundWsIncrement | PlaygroundWsDiagnostic | PlaygroundWsScenario | PlaygroundWsScenarioError
     if (parsed.type === 'snapshot' && parsed.perRoute) {
       return parsed
     }
     if (parsed.type === 'increment' && typeof parsed.routeKey === 'string') {
+      return parsed
+    }
+    if (parsed.type === 'diagnostic' && parsed.entry && typeof parsed.entry.requestId === 'string') {
+      return parsed
+    }
+    if (parsed.type === 'scenario' && parsed.scenario && Array.isArray(parsed.scenario.names) && typeof parsed.scenario.active === 'string') {
+      return parsed
+    }
+    if (parsed.type === 'scenario:error' && typeof parsed.message === 'string') {
       return parsed
     }
   }
@@ -59,5 +122,5 @@ function parseWsMessage(data: string) {
   return null
 }
 
-export type { PlaygroundWsIncrement, PlaygroundWsSnapshot, RouteCounts }
+export type { PlaygroundDiagnosticsTotals, PlaygroundHandlerCoverage, PlaygroundScenario, PlaygroundWsDiagnostic, PlaygroundWsIncrement, PlaygroundWsScenario, PlaygroundWsScenarioError, PlaygroundWsSnapshot, RouteCounts }
 export { parseWsMessage, resolvePlaygroundWsUrl }

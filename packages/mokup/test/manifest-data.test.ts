@@ -1,6 +1,7 @@
 import { Buffer } from 'node:buffer'
 import { buildManifestData, toViteImportPath } from '@mokup/core'
 import { parseRouteTemplate } from '@mokup/runtime'
+import { HttpResponse } from '@mokup/runtime/http'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 const root = '/root'
@@ -20,6 +21,17 @@ function createRoute(url: string, handler: unknown, file: string) {
 describe('manifest helpers', () => {
   afterEach(() => {
     vi.unstubAllGlobals()
+  })
+
+  it('moduleizes HttpResponse values created before a global constructor replacement', () => {
+    const NativeResponse = Response
+    vi.stubGlobal('Response', class ReplacementResponse extends NativeResponse {})
+    const { manifest, modules } = buildManifestData({
+      root,
+      routes: [createRoute('/typed', HttpResponse.json({ id: 1 }), '/root/mock/typed.get.ts')],
+    })
+    expect(manifest.routes[0]?.response.type).toBe('module')
+    expect(modules).toEqual([{ id: '/mock/typed.get.ts', kind: 'rule' }])
   })
 
   it('resolves Vite import paths for local and external files', () => {

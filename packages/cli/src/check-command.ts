@@ -10,15 +10,30 @@ import {
   diagnosticCategoryHelp,
   toScanOptions,
 } from './command-options'
+import { runContractCheck } from './contract-command'
 import { checkManifest } from './manifest'
 
 interface CheckCommandOptions extends ScanCommandOptions {
   json?: boolean
+  contract?: string
+  fixtures?: string
+  allowNetwork?: boolean
 }
 
 async function runCheck(options: CheckCommandOptions): Promise<void> {
+  if (options.contract) {
+    return runContractCheck({
+      contract: options.contract,
+      ...(options.fixtures ? { fixtures: options.fixtures } : {}),
+      ...(options.json !== undefined ? { json: options.json } : {}),
+      ...(options.allowNetwork !== undefined ? { allowNetwork: options.allowNetwork } : {}),
+    })
+  }
   let result: CheckResult
   try {
+    if (options.fixtures) {
+      throw new Error('--fixtures requires --contract.')
+    }
     result = await checkManifest(toScanOptions(options))
   }
   catch (error) {
@@ -63,5 +78,8 @@ export function registerCheckCommand(program: Command): void {
       collectDiagnosticCategory,
     )
     .option('--json', 'Print a JSON report')
+    .option('--contract <file>', 'Validate an OpenAPI 3.0/3.1 JSON or YAML contract instead of scanning mock files')
+    .option('--fixtures <file>', 'Validate request/response fixtures against --contract')
+    .option('--allow-network', 'Allow HTTP(S) external contract references')
     .action(runCheck)
 }

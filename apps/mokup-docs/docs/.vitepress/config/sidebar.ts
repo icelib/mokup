@@ -34,6 +34,11 @@ export const zhSidebar: DefaultTheme.Sidebar = {
       items: [
         { text: '多目录与前缀', link: '/zh/advanced/multi-dir-prefix' },
         { text: 'Playground', link: '/zh/advanced/playground' },
+        { text: '网络 Mock 与迁移', link: '/zh/advanced/network-mocking' },
+        { text: 'HTTP Handler', link: '/zh/reference/http-handlers' },
+        { text: 'WebSocket', link: '/zh/reference/websocket' },
+        { text: '诊断与插件', link: '/zh/reference/extensions' },
+        { text: '可选集成', link: '/zh/reference/integrations' },
         { text: '中间件顺序', link: '/zh/advanced/middleware-ordering' },
         { text: '热更新与调试', link: '/zh/advanced/hot-reload' },
       ],
@@ -82,6 +87,7 @@ export const zhSidebar: DefaultTheme.Sidebar = {
       items: [
         { text: 'CLI', link: '/zh/reference/cli' },
         { text: 'Diagnostics', link: '/zh/reference/diagnostics' },
+        { text: '框架适配器', link: '/zh/reference/frameworks' },
         { text: 'Vite 插件', link: '/zh/reference/vite-plugin' },
         { text: 'Webpack 插件', link: '/zh/reference/webpack-plugin' },
         { text: 'Server 适配器', link: '/zh/reference/server' },
@@ -127,6 +133,11 @@ export const enSidebar: DefaultTheme.Sidebar = {
       items: [
         { text: 'Multi-Dir & Prefix', link: '/advanced/multi-dir-prefix' },
         { text: 'Playground', link: '/advanced/playground' },
+        { text: 'Network Mocking & Migration', link: '/advanced/network-mocking' },
+        { text: 'HTTP Handlers', link: '/reference/http-handlers' },
+        { text: 'WebSocket', link: '/reference/websocket' },
+        { text: 'Diagnostics & Plugins', link: '/reference/extensions' },
+        { text: 'Optional Integrations', link: '/reference/integrations' },
         { text: 'Middleware Ordering', link: '/advanced/middleware-ordering' },
         { text: 'Hot Reload & Debug', link: '/advanced/hot-reload' },
       ],
@@ -175,6 +186,7 @@ export const enSidebar: DefaultTheme.Sidebar = {
       items: [
         { text: 'CLI', link: '/reference/cli' },
         { text: 'Diagnostics', link: '/reference/diagnostics' },
+        { text: 'Framework Adapters', link: '/reference/frameworks' },
         { text: 'Vite Plugin', link: '/reference/vite-plugin' },
         { text: 'Webpack Plugin', link: '/reference/webpack-plugin' },
         { text: 'Server Adapters', link: '/reference/server' },

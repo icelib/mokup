@@ -18,6 +18,10 @@ import type {
  * }
  */
 export interface RuntimeRule {
+  /** Native Fetch authoring is explicit; existing files default to Hono. */
+  handlerType?: 'hono' | 'http'
+  /** Consumption belongs to each mock session. */
+  once?: boolean
   /** Handler value or function exported from a module. */
   handler?: unknown
   /**

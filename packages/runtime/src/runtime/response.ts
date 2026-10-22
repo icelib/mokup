@@ -1,5 +1,7 @@
 import type { ManifestRoute, RuntimeResult } from '../types'
 import { applyResponseOverrides } from '@mokup/shared/response-overrides'
+import { isResponse } from '../http/is-response'
+import { copyResponseCookies, getResponseCookies } from '../http/response-cookies'
 
 const TEXT_APPLICATION_TYPES = new Set([
   'application/ecmascript',
@@ -30,7 +32,7 @@ async function toRuntimeResult(response: Response): Promise<RuntimeResult> {
     entries.push([key.toLowerCase(), value])
   })
   const headers: Record<string, string> = Object.fromEntries(entries)
-  const setCookies = response.headers.getSetCookie?.() ?? []
+  const setCookies = getResponseCookies(response)
   if (setCookies.length) {
     headers['set-cookie'] = setCookies[setCookies.length - 1]!
   }
@@ -53,16 +55,16 @@ async function toRuntimeResult(response: Response): Promise<RuntimeResult> {
 }
 
 function applyRouteOverrides(response: Response, route: ManifestRoute, method?: string) {
-  return applyResponseOverrides(response, route, method)
+  return copyResponseCookies(response, applyResponseOverrides(response, route, method), route.headers)
 }
 
 function resolveResponse(value: unknown, fallback: Response) {
-  if (value instanceof Response) {
+  if (isResponse(value)) {
     return value
   }
   if (value && typeof value === 'object' && 'res' in value) {
     const resolved = (value as { res?: unknown }).res
-    if (resolved instanceof Response) {
+    if (isResponse(resolved)) {
       return resolved
     }
   }

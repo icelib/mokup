@@ -63,7 +63,7 @@ export async function scanRoutes(params: {
   onConfig?: (info: RouteConfigInfo) => void
 }): Promise<RouteTable> {
   const routes: RouteTable = []
-  const seen = new Set<string>()
+  const seen = new Map<string, { file: string, composable: boolean }>()
   const files = await collectFiles(params.dirs)
   const globalIgnorePrefix = normalizeIgnorePrefix(params.ignorePrefix)
   const configCache = new Map<string, RouteDirectoryConfig | null>()
@@ -227,10 +227,11 @@ export async function scanRoutes(params: {
         resolved.middlewares = config.middlewares
       }
       const key = `${resolved.method} ${resolved.template}`
-      if (seen.has(key)) {
+      const previous = seen.get(key)
+      if (previous && (previous.file !== fileInfo.file || !previous.composable)) {
         params.logger.warn(`Duplicate mock route ${key} from ${fileInfo.file}`)
       }
-      seen.add(key)
+      seen.set(key, { file: fileInfo.file, composable: rule.once === true || rule.handlerType === 'http' })
       routes.push(resolved)
     }
   }

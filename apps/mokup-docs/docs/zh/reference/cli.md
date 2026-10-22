@@ -137,6 +137,53 @@ bunx mokup serve --dir mock --prefix /api --port 3000
 | `--no-playground` | 关闭 Playground                        |
 | `--no-log`        | 关闭日志输出                           |
 
+## 契约校验与生成
+
+校验 OpenAPI 3.0/3.1 契约及可选的请求/响应 fixture：
+
+```bash
+pnpm exec mokup check --contract api.yaml --fixtures fixtures.json
+pnpm exec mokup generate --contract api.yaml --out fixtures.json
+pnpm exec mokup generate --contract api.yaml --out generated.ts --format typescript
+```
+
+支持 JSON 和 YAML。相对路径的本地 `$ref` 会在校验前解析。HTTP(S) 引用默认关闭；
+只有在契约明确需要远程文档时，才为 `check` 或 `generate` 传入 `--allow-network`。
+Fixture 记录使用 `{ method, path, status, headers, body, requestBody }`；生成的 fixture
+还可以包含 `requestHeaders`，让请求参数和响应 header 分开校验。`check` 会同时
+校验路径、查询、请求头和 Cookie 参数的序列化，以及请求体和响应体 schema，因此
+`deepObject`、`matrix` 或类型错误的标量值会在进入 CI 前被发现。
+
+也可以在同一个操作和响应 schema 下比较两个响应 fixture：
+
+```bash
+pnpm exec mokup diff \
+  --contract api.yaml \
+  --expected expected.json \
+  --actual actual.json \
+  --json
+```
+
+`diff` 同时接受生成的 fixture 记录和录制的 fixture 文件。报告会合并 JSON Pointer
+值差异与两侧的 OpenAPI 校验问题；只要响应不同或任一侧违反契约，命令就以退出码
+`1` 结束。可用 `--max-differences` 限制 CI 输出量。
+
+## Record
+
+启动转发代理，从真实 API 录制脱敏 fixture：
+
+```bash
+pnpm exec mokup record \
+  --target https://api.example.test \
+  --port 8787 \
+  --out fixtures.json
+```
+
+代理会转发方法、路径、查询、请求头和请求体，并在收到 `SIGINT`/`SIGTERM` 时写入有
+上限的 fixture。Authorization、Cookie 和 Set-Cookie 默认脱敏。可重复传入
+`--redact-query` 指定敏感查询参数；脚本录制可使用 `--duration <ms>`。代理会在上游
+数据到达时直接转发响应块，同时在后台录制有上限的克隆；保存 fixture 仍受录制限制。
+
 ## API
 
 如果更喜欢编程式用法，可直接调用 `buildManifest`：

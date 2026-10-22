@@ -1,3 +1,4 @@
+import type { MockSession } from '@mokup/runtime/http'
 import type { PreviewServer, ViteDevServer } from 'vite'
 import type { PlaygroundConfig, resolveSwConfig } from '../../internal/core'
 import type { Logger } from '../../shared/types'
@@ -25,6 +26,7 @@ async function configureDevServer(params: {
   playgroundMiddleware: MiddlewareHandler
   swConfig: ReturnType<typeof resolveSwConfig>
   enableViteMiddleware: boolean
+  getMockSession?: () => MockSession
   refreshRoutes: (
     server?: ViteDevServer | PreviewServer,
     options?: { force?: boolean, silent?: boolean },
@@ -49,7 +51,7 @@ async function configureDevServer(params: {
 
   await refreshRoutes(server)
   if (enableViteMiddleware) {
-    addMiddlewareFirst(server, createMiddleware(() => state.app, logger))
+    addMiddlewareFirst(server, createMiddleware(() => state.app, logger, params.getMockSession ? { getSession: params.getMockSession } : {}))
   }
   addMiddlewareFirst(server, playgroundMiddleware)
   if (playgroundConfig.enabled) {
@@ -113,6 +115,7 @@ async function configurePreviewServer(params: {
   playgroundMiddleware: MiddlewareHandler
   swConfig: ReturnType<typeof resolveSwConfig>
   enableViteMiddleware: boolean
+  getMockSession?: () => MockSession
   refreshRoutes: (
     server?: ViteDevServer | PreviewServer,
     options?: { force?: boolean, silent?: boolean },
@@ -135,7 +138,7 @@ async function configurePreviewServer(params: {
   } = params
 
   await refreshRoutes(server)
-  const mockMiddleware = enableViteMiddleware ? createMiddleware(() => state.app, logger) : null
+  const mockMiddleware = enableViteMiddleware ? createMiddleware(() => state.app, logger, params.getMockSession ? { getSession: params.getMockSession } : {}) : null
   if (playgroundConfig.enabled && playgroundConfig.build) {
     addMiddlewareFirst(server, createStaticPlaygroundPreviewMiddleware({
       base,

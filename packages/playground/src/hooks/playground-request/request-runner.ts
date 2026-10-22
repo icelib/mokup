@@ -1,6 +1,7 @@
 import type { RouteToken } from '@mokup/runtime'
 import type { Ref } from 'vue'
 import type { ApiKeyLocation, AuthType, BodyType, MultipartFileEntry, PlaygroundRoute, RawBodyType } from '../../types'
+import type { RequestHistoryEntry } from './history'
 import type { RouteCounts } from './websocket'
 import { parseRouteTemplate } from '@mokup/runtime'
 import { applyQuery, parseJsonInput } from '../../utils/request'
@@ -41,6 +42,7 @@ function createRequestRunner(params: {
   ensureSwReady: () => Promise<boolean>
   getRouteKey: (route: PlaygroundRoute) => string
   onMissingParams?: (missing: string[]) => void
+  onRequestSettled?: (entry: Omit<RequestHistoryEntry, 'id'>) => void
 }) {
   const responseTextRef = params.responseText
   const responseRaw = params.responseRaw ?? responseTextRef ?? ({ value: '' } as Ref<string>)
@@ -244,10 +246,14 @@ function createRequestRunner(params: {
     responseHeaders.value = {}
     responseContentType.value = ''
 
-    await params.ensureSwReady()
     const startedAt = performance.now()
+    let status: number | null = null
+    let failure: string | undefined
+    let responseBody = ''
     try {
+      await params.ensureSwReady()
       const response = await fetch(url.toString(), init)
+      status = response.status
       if (!params.isServerCounts.value) {
         params.routeCounts.value[requestKey] = (params.routeCounts.value[requestKey] ?? 0) + 1
       }
@@ -264,6 +270,7 @@ function createRequestRunner(params: {
       const contentType = response.headers.get('content-type') ?? ''
       responseContentType.value = contentType
       const raw = await response.text()
+      responseBody = raw
       setResponseRaw(raw)
       if (contentType.includes('application/json')) {
         try {
@@ -279,7 +286,22 @@ function createRequestRunner(params: {
     }
     catch (err) {
       const message = err instanceof Error ? err.message : String(err)
+      failure = message
       setErrorResponse(message)
+    }
+    finally {
+      params.onRequestSettled?.({
+        method: upperMethod,
+        path: url.pathname,
+        routeKey: requestKey,
+        status,
+        duration: Math.round(performance.now() - startedAt),
+        time: new Date().toISOString(),
+        ...(failure ? { error: failure } : {}),
+        body: responseBody.slice(0, 65536),
+        contentType: responseContentType.value,
+        truncated: responseBody.length > 65536,
+      })
     }
   }
 

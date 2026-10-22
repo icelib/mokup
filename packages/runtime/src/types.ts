@@ -1,4 +1,5 @@
 import type { Context } from '@mokup/shared/hono'
+import type { HttpHandler, HttpScenario, UnhandledRequestPolicy } from './http/types'
 import type { RouteToken } from './router'
 
 /**
@@ -57,6 +58,10 @@ export interface Manifest {
  * }
  */
 export interface ManifestRoute {
+  /** Native Fetch authoring is explicit; existing files default to Hono. */
+  handlerType?: 'hono' | 'http'
+  /** Consumption belongs to each mock session. */
+  once?: boolean
   /** HTTP method of the route. */
   method: HttpMethod
   /** URL template for the route. */
@@ -165,6 +170,9 @@ export type ManifestResponse
  * }
  */
 export interface RuntimeRequest {
+  /** Original absolute transport URL, when available. */
+  url?: string
+  signal?: AbortSignal
   /** HTTP method. */
   method: string
   /** Request path (no origin). */
@@ -286,6 +294,12 @@ export type { Context, MiddlewareHandler } from '@mokup/shared/hono'
  * }
  */
 export interface RuntimeOptions {
+  /** Native definitions run before the compiled file routes. */
+  handlers?: readonly HttpHandler[]
+  /** Policy for requests unhandled by both native and file definitions. */
+  onUnhandled?: UnhandledRequestPolicy
+  /** Optional named scenario catalog exposed to native and file handlers. */
+  scenario?: HttpScenario
   /**
    * Manifest object or async loader.
    */

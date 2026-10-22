@@ -137,6 +137,59 @@ bunx mokup serve --dir mock --prefix /api --port 3000
 | `--no-playground` | Disable Playground                                |
 | `--no-log`        | Disable logging                                   |
 
+## Contract checks and generation
+
+Validate an OpenAPI 3.0/3.1 contract and optional request/response fixtures:
+
+```bash
+pnpm exec mokup check --contract api.yaml --fixtures fixtures.json
+pnpm exec mokup generate --contract api.yaml --out fixtures.json
+pnpm exec mokup generate --contract api.yaml --out generated.ts --format typescript
+```
+
+JSON and YAML contracts are accepted. Relative local `$ref` files are resolved before
+validation. HTTP(S) references are disabled by default; pass `--allow-network` to
+`check` or `generate` when the contract intentionally imports a remote document.
+Fixture records use `{ method, path, status, headers, body, requestBody }`; generated
+fixtures may also include `requestHeaders` so request parameters and response headers
+can be validated independently. `check`
+validates serialized path, query, header and cookie parameters as well as request and
+response schemas, so a fixture can catch an invalid `deepObject`, `matrix`, or typed
+scalar value before it reaches CI.
+
+Compare two response fixtures under the same operation and response schema:
+
+```bash
+pnpm exec mokup diff \
+  --contract api.yaml \
+  --expected expected.json \
+  --actual actual.json \
+  --json
+```
+
+`diff` accepts generated fixture records and recorded fixture files. The report combines
+JSON Pointer value changes with OpenAPI validation issues for each side, and exits with
+code `1` when the values differ or either response violates the contract. Use
+`--max-differences` to bound CI output.
+
+## Record
+
+Run a finite forwarding proxy to capture redacted fixtures from a real API:
+
+```bash
+pnpm exec mokup record \
+  --target https://api.example.test \
+  --port 8787 \
+  --out fixtures.json
+```
+
+The proxy forwards method, path, query, headers and request bodies, then writes bounded
+fixtures when it receives `SIGINT`/`SIGTERM`. Authorization, Cookie and Set-Cookie are
+redacted by default. Use repeated `--redact-query` options for sensitive query fields;
+`--duration <ms>` is useful for scripted capture sessions. The proxy streams response
+chunks to the client as they arrive while recording a bounded clone in the background;
+capture limits still apply to the saved fixture.
+
 ## API
 
 If you prefer programmatic usage, import `buildManifest`:

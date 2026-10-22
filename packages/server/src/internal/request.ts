@@ -7,17 +7,18 @@ import { resolveNodeRequestUrl } from './request-url'
 
 interface PreparedRequest {
   request: RuntimeRequest
-  readBody: () => Promise<RuntimeRequest>
+  readBody: (signal?: AbortSignal) => Promise<RuntimeRequest>
 }
 
 function prepareRequest(
   url: URL,
   method: string,
   headers: Record<string, string>,
-  readBody: () => Promise<ResolvedRequestBody>,
+  readBody: (signal?: AbortSignal) => Promise<ResolvedRequestBody>,
 ): PreparedRequest {
   const request: RuntimeRequest = {
     method,
+    url: url.href,
     path: url.pathname,
     query: normalizeQuery(url.searchParams),
     headers,
@@ -25,8 +26,8 @@ function prepareRequest(
   }
   return {
     request,
-    async readBody() {
-      const { body, rawBody, rawBodyBytes } = await readBody()
+    async readBody(signal) {
+      const { body, rawBody, rawBodyBytes } = await readBody(signal)
       return { ...request, body, ...(rawBody ? { rawBody } : {}), ...(rawBodyBytes ? { rawBodyBytes } : {}) }
     },
   }
@@ -49,10 +50,11 @@ export function prepareNodeRequest(req: NodeRequestLike, bodyOverride?: unknown)
   const headers = normalizeNodeHeaders(req.headers)
   const contentType = (headers['content-type'] ?? '').split(';')[0]?.trim() ?? ''
   const url = resolveNodeRequestUrl(req.url ?? req.originalUrl ?? '/', headers)
-  return prepareRequest(url, req.method ?? 'GET', headers, () => resolveBody(
+  return prepareRequest(url, req.method ?? 'GET', headers, signal => resolveBody(
     typeof bodyOverride === 'undefined' ? req.body : bodyOverride,
     contentType,
     req,
+    signal,
   ))
 }
 

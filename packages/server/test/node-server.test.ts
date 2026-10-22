@@ -55,12 +55,34 @@ function closeServer(server: ReturnType<typeof createAdaptorServer>) {
   })
 }
 
+const socketReaders = new WeakMap<WebSocket, { messages: unknown[], waiters: Array<{ resolve: (value: unknown) => void, reject: (error: unknown) => void }> }>()
+
 function readWebSocketMessage(socket: WebSocket) {
-  return new Promise<unknown>((resolve, reject) => {
-    socket.once('message', (data) => {
-      resolve(JSON.parse(data.toString()))
+  let reader = socketReaders.get(socket)
+  if (!reader) {
+    reader = { messages: [], waiters: [] }
+    socketReaders.set(socket, reader)
+    socket.on('message', (data) => {
+      const value = JSON.parse(data.toString())
+      const waiter = reader!.waiters.shift()
+      if (waiter) {
+        waiter.resolve(value)
+      }
+      else {
+        reader!.messages.push(value)
+      }
     })
-    socket.once('error', reject)
+    socket.on('error', (error) => {
+      for (const waiter of reader!.waiters.splice(0)) {
+        waiter.reject(error)
+      }
+    })
+  }
+  if (reader.messages.length) {
+    return Promise.resolve(reader.messages.shift())
+  }
+  return new Promise<unknown>((resolve, reject) => {
+    reader!.waiters.push({ resolve, reject })
   })
 }
 
@@ -91,13 +113,25 @@ describe('node server', () => {
       const routePrefix = playgroundPath === '/' ? '' : playgroundPath
       socket = new WebSocket(`ws://${host}:${port}${routePrefix}/ws`)
 
-      await expect(readWebSocketMessage(socket)).resolves.toEqual({
+      await expect(readWebSocketMessage(socket)).resolves.toMatchObject({
         type: 'snapshot',
         total: 0,
         perRoute: {},
+        diagnostics: { timeline: [], totals: { started: 0, completed: 0 } },
       })
 
-      const increment = readWebSocketMessage(socket)
+      const diagnostics: Array<{ entry: { type: string } }> = []
+      const increment = (async () => {
+        while (true) {
+          const message = await readWebSocketMessage(socket)
+          if (message && typeof message === 'object' && 'type' in message && message.type === 'diagnostic' && 'entry' in message) {
+            diagnostics.push(message as { entry: { type: string } })
+          }
+          if (message.type === 'increment') {
+            return message
+          }
+        }
+      })()
       const response = await fetch(`http://${host}:${port}/ping`)
       expect(response.status).toBe(200)
       await expect(response.json()).resolves.toEqual({ ok: true })
@@ -106,6 +140,7 @@ describe('node server', () => {
         routeKey: 'GET /ping',
         total: 1,
       })
+      expect(diagnostics.some(message => message.entry.type === 'response:mocked')).toBe(true)
     }
     finally {
       socket?.terminate()

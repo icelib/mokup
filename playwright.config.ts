@@ -58,7 +58,7 @@ export default defineConfig({
     },
     {
       name: 'adapters',
-      testMatch: /adapters\.spec\.ts/,
+      testMatch: [/adapters\.spec\.ts/, /deployed-session\.spec\.ts/],
     },
     {
       name: 'worker',
