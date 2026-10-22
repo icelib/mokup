@@ -1,6 +1,7 @@
 import type { Manifest, ManifestResponse } from '@mokup/runtime'
 import type { ResolvedRoute, RouteTable } from './shared/types'
 
+import { isHttpResponse } from '@mokup/runtime'
 import { isAbsolute, relative, resolve } from '@mokup/shared/pathe'
 import { toPosix } from './shared/utils'
 
@@ -71,7 +72,7 @@ function shouldModuleize(handler: ResolvedRoute['handler']) {
   if (typeof handler === 'function') {
     return true
   }
-  if (typeof Response !== 'undefined' && handler instanceof Response) {
+  if (isHttpResponse(handler)) {
     return true
   }
   return false
@@ -228,6 +229,8 @@ export function buildManifestData(params: {
     const response = buildManifestResponse(route, moduleId)
     const manifestRoute = {
       method: route.method,
+      ...(route.handlerType ? { handlerType: route.handlerType } : {}),
+      ...(route.once !== undefined ? { once: route.once } : {}),
       url: route.template,
       ...(route.tokens ? { tokens: route.tokens } : {}),
       ...(route.score ? { score: route.score } : {}),

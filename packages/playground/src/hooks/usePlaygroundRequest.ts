@@ -1,11 +1,14 @@
 import type { RouteToken } from '@mokup/runtime'
 import type { Ref } from 'vue'
 import type { ApiKeyLocation, AuthType, BodyType, MultipartFileEntry, PlaygroundRoute, RawBodyType, RouteParamField } from '../types'
-import type { RouteCounts } from './playground-request/websocket'
+import type { RequestHistoryEntry } from './playground-request/history'
+import type { PlaygroundDiagnosticsTotals, PlaygroundHandlerCoverage, PlaygroundScenario, PlaygroundWsDiagnostic, RouteCounts } from './playground-request/websocket'
 import { parseRouteTemplate } from '@mokup/runtime'
-import { computed, getCurrentInstance, onBeforeUnmount, ref, watch } from 'vue'
+import { computed, getCurrentInstance, onBeforeUnmount, provide, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { parseJsonInput } from '../utils/request'
+import { requestCoverageKey, requestCoverageTotalsKey } from './playground-request/coverage'
+import { requestHistoryKey } from './playground-request/history'
 import { buildDisplayPath, buildRouteParams } from './playground-request/params'
 import { buildQueryString } from './playground-request/query'
 import { createRequestRunner } from './playground-request/request-runner'
@@ -43,6 +46,16 @@ export function usePlaygroundRequest(
   const responseContentType = ref('')
   const responseStatus = ref(t('response.idle'))
   const responseTime = ref('')
+  const requestHistory = ref<RequestHistoryEntry[]>([])
+  const handlerCoverage = ref<PlaygroundHandlerCoverage[]>([])
+  const coverageTotals = ref<PlaygroundDiagnosticsTotals>({ started: 0, completed: 0, mocked: 0, bypassed: 0, unhandled: 0, errors: 0 })
+  const serverHistoryRequestIds = new Set<string>()
+  let historyId = 0
+  if (getCurrentInstance()) {
+    provide(requestHistoryKey, requestHistory)
+    provide(requestCoverageKey, handlerCoverage)
+    provide(requestCoverageTotalsKey, coverageTotals)
+  }
   const requestPayloadState = {
     queryText,
     headersText,
@@ -79,6 +92,9 @@ export function usePlaygroundRequest(
   const routeCounts = ref<RouteCounts>({})
   const totalCount = computed(() => Object.values(routeCounts.value).reduce((sum, value) => sum + value, 0))
   const isServerCounts = ref(false)
+  const scenarioNames = ref<string[]>([])
+  const activeScenario = ref('')
+  const scenarioError = ref('')
   const wsRef = ref<WebSocket | null>(null)
   const wsUrlRef = ref('')
   const routeTokens = ref<RouteToken[]>([])
@@ -104,6 +120,56 @@ export function usePlaygroundRequest(
   const getRouteKey = (route: PlaygroundRoute) => `${route.method} ${route.url}`
   const getRouteCount = (route: PlaygroundRoute) => routeCounts.value[getRouteKey(route)] ?? 0
 
+  function appendServerDiagnostic(diagnostic: PlaygroundWsDiagnostic) {
+    if (!['response:mocked', 'response:bypass', 'request:unhandled'].includes(diagnostic.entry.type)) {
+      return
+    }
+    if (serverHistoryRequestIds.has(diagnostic.entry.requestId)) {
+      return
+    }
+    serverHistoryRequestIds.add(diagnostic.entry.requestId)
+    let path = diagnostic.entry.url
+    try {
+      const url = new URL(diagnostic.entry.url)
+      path = `${url.pathname}${url.search}`
+    }
+    catch {
+      // Keep the transport URL when a custom adapter emits a relative value.
+    }
+    requestHistory.value = [{
+      id: ++historyId,
+      method: diagnostic.entry.method,
+      path,
+      routeKey: `${diagnostic.entry.method} ${path}`,
+      status: diagnostic.entry.status ?? null,
+      duration: 0,
+      time: new Date(diagnostic.entry.timestamp).toISOString(),
+      ...(diagnostic.entry.error ? { error: diagnostic.entry.error.message } : {}),
+      body: '',
+      contentType: '',
+      truncated: true,
+      ...(diagnostic.entry.decisionChain
+        ? { decisionChain: diagnostic.entry.decisionChain.map(decision => ({ ...decision })) }
+        : {}),
+    }, ...requestHistory.value].slice(0, 50)
+  }
+
+  function applyCoverage(handlers: PlaygroundHandlerCoverage[], totals: PlaygroundDiagnosticsTotals) {
+    handlerCoverage.value = handlers.map(handler => ({ ...handler }))
+    coverageTotals.value = { ...totals }
+  }
+
+  function applyScenario(scenario: PlaygroundScenario | undefined) {
+    if (!scenario) {
+      scenarioNames.value = []
+      activeScenario.value = ''
+      return
+    }
+    scenarioNames.value = [...scenario.names]
+    activeScenario.value = scenario.active
+    scenarioError.value = ''
+  }
+
   function handleWsMessage(event: MessageEvent) {
     if (typeof event.data !== 'string') {
       return
@@ -114,6 +180,28 @@ export function usePlaygroundRequest(
     }
     if (parsed.type === 'snapshot') {
       routeCounts.value = { ...parsed.perRoute }
+      applyScenario(parsed.scenario)
+      const diagnostics = parsed.diagnostics
+      if (!diagnostics) {
+        return
+      }
+      applyCoverage(diagnostics.handlers, diagnostics.totals)
+      for (const entry of diagnostics.timeline) {
+        appendServerDiagnostic({ type: 'diagnostic', entry, handlers: diagnostics.handlers, totals: diagnostics.totals })
+      }
+      return
+    }
+    if (parsed.type === 'diagnostic') {
+      applyCoverage(parsed.handlers, parsed.totals)
+      appendServerDiagnostic(parsed)
+      return
+    }
+    if (parsed.type === 'scenario') {
+      applyScenario(parsed.scenario)
+      return
+    }
+    if (parsed.type === 'scenario:error') {
+      scenarioError.value = parsed.message
       return
     }
     routeCounts.value[parsed.routeKey] = (routeCounts.value[parsed.routeKey] ?? 0) + 1
@@ -126,6 +214,17 @@ export function usePlaygroundRequest(
     }
     wsUrlRef.value = ''
     isServerCounts.value = false
+    applyScenario(undefined)
+  }
+
+  function sendScenario(action: 'select' | 'reset', name?: string) {
+    const socket = wsRef.value
+    if (!socket || socket.readyState !== WebSocket.OPEN) {
+      scenarioError.value = 'Playground WebSocket is not connected.'
+      return
+    }
+    scenarioError.value = ''
+    socket.send(JSON.stringify({ type: 'scenario', action, ...(name === undefined ? {} : { name }) }))
   }
 
   function connectWebSocket(basePath: string) {
@@ -266,6 +365,9 @@ export function usePlaygroundRequest(
     isServerCounts,
     ensureSwReady,
     getRouteKey,
+    onRequestSettled: (entry) => {
+      requestHistory.value = [{ ...entry, id: ++historyId }, ...requestHistory.value].slice(0, 50)
+    },
     onMissingParams: (missing) => {
       missingParams.value = [...missing]
       missingPulse.value += 1
@@ -294,5 +396,10 @@ export function usePlaygroundRequest(
     routeCounts,
     totalCount,
     getRouteCount,
+    scenarioNames,
+    activeScenario,
+    scenarioError,
+    selectScenario: (name: string) => sendScenario('select', name),
+    resetScenario: () => sendScenario('reset'),
   }
 }

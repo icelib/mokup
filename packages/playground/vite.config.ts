@@ -1,3 +1,4 @@
+import { readFile } from 'node:fs/promises'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
 import tailwindcss from '@tailwindcss/vite'
@@ -50,6 +51,19 @@ function routesAliasPlugin() {
   }
 }
 
+function fontLicensesPlugin(): import('vite').Plugin {
+  return {
+    name: 'playground:font-licenses',
+    async generateBundle() {
+      const sources = await Promise.all(['space-grotesk', 'fraunces'].map(async (font) => {
+        const license = await readFile(new URL(`./node_modules/@fontsource/${font}/LICENSE`, import.meta.url), 'utf8')
+        return `${font}\n\n${license}`
+      }))
+      this.emitFile({ type: 'asset', fileName: 'assets/font-licenses.txt', source: sources.join('\n\n') })
+    },
+  }
+}
+
 export default defineConfig(({ command }) => ({
   base: './',
   resolve: {
@@ -60,6 +74,7 @@ export default defineConfig(({ command }) => ({
   plugins: [
     vue(),
     tailwindcss(),
+    fontLicensesPlugin(),
     // Published assets are generic; only the development server uses docs mocks.
     ...(command === 'serve'
       ? [

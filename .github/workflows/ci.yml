@@ -71,7 +71,9 @@ jobs:
       - name: Lint
         # Running the workspace scripts directly avoids the intermittent
         # Turbo process-tree hang observed after all Windows lint tasks finish.
-        run: pnpm -r --if-present --workspace-concurrency=8 run lint
+        # Lint tasks are independent; optional runtime peers must not create
+        # ordering cycles with the playground's development dependencies.
+        run: pnpm -r --if-present --workspace-concurrency=8 --no-sort run lint
 
       - name: Line Budget (guard)
         run: pnpm run lint:lines:guard
@@ -84,6 +86,15 @@ jobs:
 
       - name: Test
         run: pnpm test
+
+      - name: Provider adapter matrix
+        run: pnpm run test:provider-matrix
+
+      - name: Deployment template smoke checks
+        run: pnpm run test:deployment-templates
+
+      - name: Mock package contract
+        run: pnpm run test:mock-package-contract
 
       - name: Type Tests
         run: pnpm run test:types
@@ -103,7 +114,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        node-version: [22.12.0, 22]
+        node-version: [22.12.0, 24]
     env:
       HUSKY: 0
     steps:
@@ -134,7 +145,9 @@ jobs:
         with:
           node-version: ${{ matrix.node-version }}
 
-      - name: Test isolated published artifacts on supported Node.js
+      - name: Test strict consumer installation and full runtime compatibility
+        # This phase also runs check-runtime-compat.mjs --consumer, retaining
+        # all public exports, network interception and runtime lifecycle checks.
         run: node scripts/runtime-smoke.mjs --runtime-only --dir .tmp/runtime-smoke
 
   vite-compat:
@@ -204,12 +217,16 @@ jobs:
           path: ~/.cache/ms-playwright
           key: ${{ runner.os }}-playwright-${{ hashFiles('pnpm-lock.yaml') }}
 
-      - name: Install Playwright browser
-        if: steps.playwright-cache.outputs.cache-hit != 'true'
-        run: pnpm exec playwright install chrome --with-deps
+      # Browser binaries use the cache; Linux system libraries still need setup
+      # on every fresh runner, including when the browser cache is restored.
+      - name: Install Playwright browsers and system dependencies
+        run: pnpm exec playwright install chrome firefox webkit --with-deps
 
       - name: E2E Tests
         run: pnpm run test:e2e:serial
+
+      - name: Browser network conformance
+        run: pnpm run test:conformance
 
       - name: D1 Authentication Tests
         run: pnpm run test:e2e:d1
@@ -222,5 +239,6 @@ jobs:
           path: |
             playwright-report
             test-results
+            test-results-conformance
             apps/*/playwright-report
             apps/*/test-results

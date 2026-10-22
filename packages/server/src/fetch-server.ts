@@ -1,4 +1,5 @@
 import type { WebSocketServerLike } from '@hono/node-server'
+import type { MockSession } from '@mokup/runtime/http'
 import type { Hono } from '@mokup/shared/hono'
 import type { RouteConfigInfo, RouteIgnoreInfo, RouteSkipInfo } from './dev/scanner'
 import type { RouteTable } from './dev/types'
@@ -6,6 +7,7 @@ import type { RouteTable } from './dev/types'
 import type {
   FetchServerOptionsInput,
 } from './fetch-options'
+import { createMockSession } from '@mokup/runtime/http'
 import { collectRouteDiagnosticWarning, createRouteDiagnosticSections, reportDiagnostics } from '@mokup/shared/diagnostics'
 import { relative } from '@mokup/shared/pathe'
 import { createLogger } from './dev/logger'
@@ -40,6 +42,10 @@ export type {
  * }
  */
 export interface FetchServer {
+  /** Shared controls and lifecycle for native and file-derived handlers. */
+  readonly mockSession: MockSession
+  /** Permanently dispose requests, streams, handlers, and refresh resources. */
+  dispose: () => Promise<void>
   /** Fetch handler for runtime requests. */
   fetch: (
     request: Request,
@@ -81,6 +87,12 @@ export async function createFetchServer(
 
   const playgroundWs = createPlaygroundWs(playgroundConfig)
   await playgroundWs.setupPlaygroundWebSocket()
+  const mockSession = createMockSession({
+    ...(options.onUnhandled ? { onUnhandled: options.onUnhandled } : {}),
+    ...(options.scenario ? { scenario: options.scenario } : {}),
+  })
+  playgroundWs.attachSession?.(mockSession)
+  let disposed = false
 
   let routes: RouteTable = []
   const appParams: Parameters<typeof buildFetchServerApp>[0] = {
@@ -94,6 +106,8 @@ export async function createFetchServer(
     root,
     logger,
     onResponse: playgroundWs.handleRouteResponse,
+    session: mockSession,
+    ...(options.handlers ? { handlers: options.handlers } : {}),
   }
   const initialWsHandler = playgroundWs.getWsHandler()
   if (initialWsHandler) {
@@ -102,6 +116,9 @@ export async function createFetchServer(
   let app = buildFetchServerApp(appParams)
 
   const refreshRoutes = async (refreshOptions?: { throwOnError?: boolean }) => {
+    if (disposed) {
+      throw new Error('Cannot refresh a disposed mock server.')
+    }
     try {
       const collected: RouteTable = []
       const collectedDisabled: RouteSkipInfo[] = []
@@ -180,6 +197,8 @@ export async function createFetchServer(
         root,
         logger,
         onResponse: playgroundWs.handleRouteResponse,
+        session: mockSession,
+        ...(options.handlers ? { handlers: options.handlers } : {}),
       }
       const refreshedWsHandler = playgroundWs.getWsHandler()
       if (refreshedWsHandler) {
@@ -206,22 +225,60 @@ export async function createFetchServer(
     refreshRoutes,
     error => logger.error('Failed to refresh mock routes:', error),
   )
-  await refreshController.refresh()
-  const watcher = await createWatcher({
-    enabled: watchEnabled,
-    dirs,
-    onChange: refreshController.schedule,
-    logger,
-  })
+  let watcher: Awaited<ReturnType<typeof createWatcher>>
+  try {
+    await refreshController.refresh()
+    watcher = await createWatcher({
+      enabled: watchEnabled,
+      dirs,
+      onChange: refreshController.schedule,
+      logger,
+    })
+  }
+  catch (error) {
+    const results = await Promise.allSettled([
+      refreshController.stopWatching(),
+      mockSession.dispose(),
+      playgroundWs.dispose(),
+    ])
+    const errors = results.filter(result => result.status === 'rejected').map(result => result.reason)
+    if (errors.length) {
+      throw new AggregateError([error, ...errors], 'Mock server initialization and cleanup failed.')
+    }
+    throw error
+  }
 
   const fetch: FetchServer['fetch'] = async (request, env, executionCtx) => {
+    if (disposed) {
+      throw new Error('Cannot fetch from a disposed mock server.')
+    }
     return await app.fetch(request, env, executionCtx)
   }
 
+  let disposal: Promise<void> | undefined
   const server: FetchServer = {
+    mockSession,
     fetch,
     refresh: refreshController.refresh,
     getRoutes: () => routes,
+    dispose: () => {
+      if (!disposal) {
+        disposed = true
+        disposal = (async () => {
+          const results = await Promise.allSettled([
+            refreshController.stopWatching(),
+            watcher?.close(),
+            mockSession.dispose(),
+            playgroundWs.dispose(),
+          ])
+          const errors = results.filter(result => result.status === 'rejected').map(result => result.reason)
+          if (errors.length) {
+            throw new AggregateError(errors, 'Mock server disposal failed.')
+          }
+        })()
+      }
+      return disposal
+    },
   }
   const websocket = playgroundWs.getWebSocketOptions()
   if (websocket) {

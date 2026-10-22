@@ -12,7 +12,10 @@ import {
   diagnosticCategoryHelp,
   toScanOptions,
 } from './command-options'
+import { registerCompareCommand } from './compare-command'
+import { registerDiffCommand, registerGenerateCommand } from './contract-command'
 import { buildManifest } from './manifest'
+import { registerRecordCommand } from './record-command'
 
 const logger = createLogger()
 
@@ -79,6 +82,10 @@ export function createCli() {
     .showHelpAfterError()
 
   registerCheckCommand(program)
+  registerCompareCommand(program)
+  registerGenerateCommand(program)
+  registerDiffCommand(program)
+  registerRecordCommand(program)
 
   program
     .command('build')

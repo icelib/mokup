@@ -4,8 +4,10 @@ import { Buffer } from 'node:buffer'
 import { EventEmitter } from 'node:events'
 import { createHonoApp, createMiddleware } from '@mokup/core'
 import { parseRouteTemplate } from '@mokup/runtime'
+import { HttpResponse } from '@mokup/runtime/http'
 import { Hono, PatternRouter } from '@mokup/shared/hono'
 import { describe, expect, it, vi } from 'vitest'
+import { createResponseStream } from './helpers/response-stream'
 
 function createRouteTable(): RouteTable {
   const parsed = parseRouteTemplate('/users/[id]')
@@ -28,6 +30,21 @@ function createMatchResult(method: string, path: string): ReturnType<Hono['route
 }
 
 describe('dev middleware params', () => {
+  it('keeps HttpResponse bodies when another server replaces the global Response', async () => {
+    const NativeResponse = Response
+    vi.stubGlobal('Response', class ReplacementResponse extends NativeResponse {})
+    try {
+      const routes = createRouteTable()
+      routes[0]!.handler = () => HttpResponse.json({ id: 'typed' }, { status: 201 })
+      const response = await createHonoApp(routes).fetch(new Request('http://mokup.local/users/1'))
+      expect(response.status).toBe(201)
+      expect(await response.json()).toEqual({ id: 'typed' })
+    }
+    finally {
+      vi.unstubAllGlobals()
+    }
+  })
+
   it('passes params to handlers', async () => {
     const routes = createRouteTable()
     const app = createHonoApp(routes)
@@ -44,7 +61,7 @@ describe('dev middleware params', () => {
       headers: {} as Record<string, string>,
       writableEnded: false,
     }
-    const res = {
+    const res = createResponseStream({
       setHeader: (name: string, value: string) => {
         state.headers[name] = value
       },
@@ -69,7 +86,7 @@ describe('dev middleware params', () => {
       get writableEnded() {
         return state.writableEnded
       },
-    } as unknown as ServerResponse
+    }) as unknown as ServerResponse
 
     const promise = middleware(req, res, () => {
       res.statusCode = 404
@@ -91,7 +108,7 @@ describe('dev middleware params', () => {
     req.method = 'GET'
     req.headers = {}
 
-    const res = { writableEnded: false } as ServerResponse
+    const res = createResponseStream({}) as unknown as ServerResponse
     const next = vi.fn()
 
     await missingApp(req, res, next)
@@ -135,7 +152,7 @@ describe('dev middleware params', () => {
       writableEnded: false,
       headersSent: false,
     }
-    const res = {
+    const res = createResponseStream({
       setHeader: (name: string, value: string) => {
         state.headers[name] = value
         state.headersSent = true
@@ -164,7 +181,7 @@ describe('dev middleware params', () => {
       get headersSent() {
         return state.headersSent
       },
-    } as unknown as ServerResponse
+    }) as unknown as ServerResponse
 
     const promise = middleware(req, res, () => undefined)
     req.emit('end')
@@ -274,7 +291,7 @@ describe('dev middleware params', () => {
       statusCode: 0,
       ended: false,
     }
-    const res = {
+    const res = createResponseStream({
       setHeader: vi.fn(),
       end: () => {
         state.ended = true
@@ -288,7 +305,7 @@ describe('dev middleware params', () => {
       get writableEnded() {
         return state.ended
       },
-    } as unknown as ServerResponse
+    }) as unknown as ServerResponse
 
     const promise = middleware(req, res, vi.fn())
     req.emit('data', 'hello')
@@ -317,7 +334,7 @@ describe('dev middleware params', () => {
     req.method = 'HEAD'
     req.headers = {}
 
-    const res = { writableEnded: false, setHeader: vi.fn(), end: vi.fn() } as unknown as ServerResponse
+    const res = createResponseStream({ writableEnded: false, setHeader: vi.fn(), end: vi.fn() }) as unknown as ServerResponse
     const promise = middleware(req, res, vi.fn())
     req.emit('end')
     await promise
@@ -529,7 +546,7 @@ describe('dev middleware params', () => {
     req.headers = {}
 
     const state = { ended: false }
-    const res = {
+    const res = createResponseStream({
       setHeader: vi.fn(),
       end: () => {
         state.ended = true
@@ -543,7 +560,7 @@ describe('dev middleware params', () => {
       get writableEnded() {
         return state.ended
       },
-    } as unknown as ServerResponse
+    }) as unknown as ServerResponse
 
     const promise = middleware(req, res, vi.fn())
     req.emit('data', 'payload')
@@ -570,7 +587,7 @@ describe('dev middleware params', () => {
     req.method = 'GET'
     req.headers = {}
 
-    const res = {
+    const res = createResponseStream({
       headersSent: true,
       setHeader: vi.fn(),
       end: vi.fn(),
@@ -583,7 +600,7 @@ describe('dev middleware params', () => {
       get writableEnded() {
         return false
       },
-    } as unknown as ServerResponse
+    }) as unknown as ServerResponse
 
     const promise = middleware(req, res, vi.fn())
     req.emit('end')
@@ -605,13 +622,13 @@ describe('dev middleware params', () => {
     req.method = 'POST'
     req.headers = { 'x-test': 'value', 'x-omit': undefined }
 
-    const res = {
+    const res = createResponseStream({
       setHeader: vi.fn(),
       end: vi.fn(),
       get writableEnded() {
         return true
       },
-    } as unknown as ServerResponse
+    }) as unknown as ServerResponse
 
     const promise = middleware(req, res, vi.fn())
     req.emit('data', new Uint8Array([1, 2, 3]))

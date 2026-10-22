@@ -1,10 +1,11 @@
 import type { ModuleMap } from '@mokup/runtime'
 
-import type { ServerOptions, WorkerBundle, WorkerInput } from './types'
+import type { WorkerBundle, WorkerInput } from './types'
+import type { ControlledFetchWorker } from './worker'
 
 import { resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { createFetchHandler } from './fetch'
+import { createMokupWorker as createWebWorker } from './worker'
 
 /**
  * Minimal Worker-style fetch interface for Node helpers.
@@ -14,10 +15,7 @@ import { createFetchHandler } from './fetch'
  *
  * const worker: FetchWorker = { fetch: async () => new Response('ok') }
  */
-export interface FetchWorker {
-  /** Fetch handler for the Worker runtime. */
-  fetch: (request: Request) => Promise<Response>
-}
+export type { ControlledFetchWorker, FetchWorker } from './worker'
 
 /**
  * Input accepted by the Node worker helper.
@@ -36,28 +34,6 @@ function ensureTrailingSlash(value: string) {
 export function resolveModuleBase(dir: string) {
   const absolute = resolve(dir)
   return ensureTrailingSlash(pathToFileURL(absolute).href)
-}
-
-function isManifest(value: WorkerInput): value is WorkerBundle['manifest'] {
-  return typeof value === 'object'
-    && value !== null
-    && !Array.isArray(value)
-    && 'version' in value
-    && 'routes' in value
-}
-
-function normalizeWorkerOptions(bundle: WorkerBundle): ServerOptions {
-  const options: ServerOptions = {
-    manifest: bundle.manifest,
-    onNotFound: bundle.onNotFound ?? 'response',
-  }
-  if (typeof bundle.moduleBase !== 'undefined') {
-    options.moduleBase = bundle.moduleBase
-  }
-  if (typeof bundle.moduleMap !== 'undefined') {
-    options.moduleMap = bundle.moduleMap
-  }
-  return options
 }
 
 async function loadBundleFromDir(dir: string): Promise<WorkerBundle> {
@@ -94,15 +70,6 @@ async function loadBundleFromDir(dir: string): Promise<WorkerBundle> {
   return bundle
 }
 
-function createWorker(handlerOptions: ServerOptions): FetchWorker {
-  const handler = createFetchHandler(handlerOptions)
-  return {
-    fetch: async (request: Request) => {
-      return (await handler(request)) ?? new Response('Not Found', { status: 404 })
-    },
-  }
-}
-
 /**
  * Create a Worker-compatible fetch handler for Node.
  *
@@ -114,20 +81,14 @@ function createWorker(handlerOptions: ServerOptions): FetchWorker {
  *
  * const worker = await createMokupWorker('.mokup')
  */
-export function createMokupWorker(input: string): Promise<FetchWorker>
-export function createMokupWorker(input: WorkerInput): FetchWorker
+export function createMokupWorker(input: string): Promise<ControlledFetchWorker>
+export function createMokupWorker(input: WorkerInput): ControlledFetchWorker
 export function createMokupWorker(
   input: NodeWorkerInput,
-): FetchWorker | Promise<FetchWorker> {
+): ControlledFetchWorker | Promise<ControlledFetchWorker> {
   if (typeof input === 'string') {
     return loadBundleFromDir(input)
-      .then(bundle => createWorker(normalizeWorkerOptions(bundle)))
+      .then(bundle => createWebWorker(bundle))
   }
-  if (isManifest(input)) {
-    return createWorker({
-      manifest: input,
-      onNotFound: 'response',
-    })
-  }
-  return createWorker(normalizeWorkerOptions(input))
+  return createWebWorker(input)
 }

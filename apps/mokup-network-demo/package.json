@@ -1,0 +1,15 @@
+{
+  "name": "mokup-network-demo",
+  "type": "module",
+  "private": true,
+  "engines": {
+    "node": ">=24.15.0 <25"
+  },
+  "scripts": {
+    "dev": "node src/index.mjs",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "mokup": "workspace:*"
+  }
+}

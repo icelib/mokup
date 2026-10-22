@@ -1,6 +1,7 @@
 import type {
   Manifest,
   ManifestRoute,
+  ResolvedRouteApp,
   RouteToken,
   RuntimeOptions,
   RuntimeRequest,
@@ -27,12 +28,13 @@ const options: RuntimeOptions = {
 }
 
 const runtime = createRuntime(options)
-expectType<(req: RuntimeRequest) => Promise<RuntimeResult | null>>(runtime.handle)
+expectType<(req: RuntimeRequest, context?: import('@mokup/runtime/http').HttpRequestContext) => Promise<RuntimeResult | null>>(runtime.handle)
 expectType<(req: Pick<RuntimeRequest, 'method' | 'path'>) => Promise<boolean>>(runtime.hasRoute)
 expectType<Promise<boolean>>(runtime.hasRoute({ method: 'POST', path: '/api/ping' }))
 
 const appPromise = createRuntimeApp(options)
-expectType<Promise<Hono>>(appPromise)
+expectType<Promise<ResolvedRouteApp>>(appPromise)
+expectAssignable<Promise<Hono>>(appPromise)
 
 const tokens: RouteToken[] = [{ type: 'static', value: 'users' }]
 expectAssignable<number[]>(scoreRouteTokens(tokens))

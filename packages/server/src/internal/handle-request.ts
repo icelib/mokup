@@ -1,28 +1,45 @@
 import type { createRuntime, RuntimeResult } from '@mokup/runtime'
 import type { NodeRequestLike } from './types'
+import { IncomingMessage } from 'node:http'
+import { toSessionRequest } from '@mokup/core/middleware'
+import { toFetchRequest } from '@mokup/runtime'
 import { withStreamLifecycle } from '@mokup/shared/stream-body'
-import { prepareFetchRequest, prepareNodeRequest } from './request'
+import { prepareNodeRequest } from './request'
 
-type Runtime = Pick<ReturnType<typeof createRuntime>, 'hasRoute' | 'handle'>
-type PreparedRequest = ReturnType<typeof prepareFetchRequest>
+type Runtime = Pick<ReturnType<typeof createRuntime>, 'handle' | 'fetch'>
 
-async function handlePreparedRequest(runtime: Runtime, prepared: PreparedRequest, stream?: NodeRequestLike): Promise<RuntimeResult | null> {
-  const routeRequest = { method: prepared.request.method, path: prepared.request.path }
-  const matched = stream
-    ? await withStreamLifecycle(stream, () => runtime.hasRoute(routeRequest))
-    : await runtime.hasRoute(routeRequest)
-  if (!matched) {
-    return null
+/** Structural hosts reuse parsed bodies; native HTTP streams retain replayable uploads. */
+export async function handleNodeRequest(runtime: Runtime, request: NodeRequestLike, bodyOverride?: unknown, loadBodyOverride?: () => unknown): Promise<RuntimeResult | null> {
+  // Validate before attaching lifecycle listeners or inspecting a body property.
+  const prepared = prepareNodeRequest(request, bodyOverride)
+  const controller = new AbortController()
+  try {
+    return await withStreamLifecycle(request, () => runtime.handle({ ...prepared.request, signal: controller.signal }, {
+      async loadRequest(signal) {
+        if (prepared.request.method === 'GET' || prepared.request.method === 'HEAD') {
+          return toFetchRequest({ ...prepared.request, signal })
+        }
+        const override = loadBodyOverride ? loadBodyOverride() : bodyOverride
+        if (request instanceof IncomingMessage) {
+          return toSessionRequest(request, new URL(prepared.request.url!), signal, override === undefined ? (request as NodeRequestLike).body : override)
+        }
+        const input = await (loadBodyOverride ? prepareNodeRequest(request, override) : prepared).readBody(signal)
+        // The minimal structural contract exposes a body rather than rewind methods.
+        // Retain exact upload bytes for subsequent structural consumers.
+        if (override === undefined && input.rawBodyBytes !== undefined) {
+          request.body = input.rawBodyBytes
+        }
+        return toFetchRequest({ ...input, signal })
+      },
+    }))
   }
-  return runtime.handle(await prepared.readBody())
-}
-
-/** Only consume a Node request after the runtime accepts its route. */
-export async function handleNodeRequest(runtime: Runtime, request: NodeRequestLike, bodyOverride?: unknown): Promise<RuntimeResult | null> {
-  return handlePreparedRequest(runtime, prepareNodeRequest(request, bodyOverride), request)
+  catch (error) {
+    controller.abort(error)
+    throw error
+  }
 }
 
 /** Leave an unmatched Fetch request's body available for the next handler. */
-export async function handleFetchRequest(runtime: Runtime, request: Request): Promise<RuntimeResult | null> {
-  return handlePreparedRequest(runtime, prepareFetchRequest(request))
+export async function handleFetchRequest(runtime: Pick<Runtime, 'fetch'>, request: Request): Promise<Response | null> {
+  return runtime.fetch(request)
 }

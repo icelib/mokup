@@ -205,7 +205,8 @@ describe('request body ownership across adapter fallthrough', () => {
       const response = await handler(req)
       expect(response?.status).toBe(200)
       expect(await response?.json()).toEqual({ body: payload, id })
-      expect(req.bodyUsed).toBe(true)
+      expect(req.bodyUsed).toBe(false)
+      expect(await req.text()).toBe(rawPayload)
     }
   })
 

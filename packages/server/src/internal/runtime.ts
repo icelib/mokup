@@ -20,6 +20,8 @@ export function toRuntimeOptions(
 ): RuntimeOptions {
   const runtimeOptions: RuntimeOptions = {
     manifest: options.manifest,
+    ...(options.handlers ? { handlers: options.handlers } : {}),
+    ...(options.onUnhandled ? { onUnhandled: options.onUnhandled } : {}),
   }
   if (typeof options.moduleBase !== 'undefined') {
     runtimeOptions.moduleBase = options.moduleBase

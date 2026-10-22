@@ -17,7 +17,7 @@ catalog:
   tsdown: 0.23.1
   tsx: ^4.23.15
   typescript: ^6.0.3
-  vite: ^8.3.4
+  vite: ^8.3.5
   vue: ^3.5.44
   vue-tsc: ^3.3.13
   wrangler: ^4.151.0
@@ -43,6 +43,7 @@ versioning:
   changelog:
     storage: repository
 overrides:
+  # stylelint's css-calc peer requires these compatible patch releases.
   stylelint@17.16.0>@csstools/css-parser-algorithms: 4.0.2
   stylelint@17.16.0>@csstools/css-tokenizer: 4.0.2
   '@asamuzakjp/css-color@5.1.11>@csstools/css-parser-algorithms': 4.0.2
@@ -67,21 +68,31 @@ overrides:
   browserslist@>=4.0.0 <4.29.3: ^4.29.3
   baseline-browser-mapping@>=2.0.0 <2.11.27: ^2.11.27
   qs@>=6.0.0 <6.16.0: ^6.16.0
-  markdown-it@>=14.0.0 <14.3.2: ^14.3.2
   '@humanfs/node@>=0.16.0 <0.16.8': ^0.16.8
   '@babel/core@>=7.0.0 <7.29.7': ^7.29.7
   body-parser@>=2.0.0 <2.3.0: ^2.3.0
   postcss-selector-parser@>=7.0.0 <7.1.6: ^7.1.6
+  # This stable Drizzle release uses tsx; its old loader dependency is unused.
   drizzle-kit@0.31.11>@esbuild-kit/esm-loader: '-'
   drizzle-kit@0.31.11>tsx: ^4.23.15
   '@babel/plugin-transform-modules-systemjs@>=7.12.0 <7.29.4': ^7.29.4
   '@hono/node-server@>=1.0.0 <1.19.15': ^1.19.15
-  esbuild: 0.28.2
   hono@>=4.0.0 <4.13.13: ^4.13.13
   lodash@>=4.0.0 <4.17.24: ^4.17.24
-  micromark-extension-math>katex: ^0.19.0
   serialize-javascript@>=5.0.0 <7.0.5: ^7.0.5
   tinypool@>=2.0.0 <2.1.2: ^2.2.0
+  # Keep Vite's optional transform types identical across workspace peers.
+  vite@8.3.5>esbuild: 0.28.2
+  # repoctl's test helpers must share Vitest's exact coverage-plugin peer version.
+  '@icebreakers/monorepo@5.10.3>vitest': ~5.0.5
+  markdown-it@>=14.0.0 <14.3.3: ^14.3.3
+  launch-editor@<=2.14.1: ^2.14.2
+  proxy-addr@>=1.1.0 <2.0.8: ^2.0.8
+  sharp@>=0.35.0 <0.35.5: ^0.35.5
+  source-map-js@>=1.0.0 <1.2.2: ^1.2.2
+  '@ungap/structured-clone@<1.3.1': ^1.3.1
+  # Retain the validated KaTeX 0.18 line; 0.19 requires a separate API review.
+  katex@>=0.11.0 <0.18.2: ~0.18.2
 gitChecks: false
 patchedDependencies:
   '@icebreakers/monorepo@5.10.3': patches/@icebreakers__monorepo@5.10.3.patch

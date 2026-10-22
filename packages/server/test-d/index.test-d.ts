@@ -1,4 +1,5 @@
 import type {
+  ControlledFetchHandler,
   DiagnosticCategory,
   DiagnosticErrorMode,
   FetchHandler,
@@ -18,12 +19,15 @@ import {
   onBeforeAll,
 } from '@mokup/server'
 import {
+  createAstroEndpoint,
   createConnectMiddleware,
   createExpressMiddleware,
   createFetchServer,
   createHonoMiddleware,
   createKoaMiddleware,
+  createNextRouteHandler,
   createMokupWorker as createNodeWorker,
+  createNuxtHandler,
 } from '@mokup/server/node'
 import { expectAssignable, expectType } from 'tsd'
 
@@ -36,7 +40,10 @@ const serverOptions: ServerOptions = {
 }
 
 const handler = createFetchHandler(serverOptions)
-expectType<FetchHandler>(handler)
+expectType<ControlledFetchHandler>(handler)
+expectAssignable<FetchHandler>(handler)
+expectType<AbortSignal>(handler.signal)
+void handler.ready().then(session => expectType<AbortSignal>(session.signal))
 
 const workerBundle: WorkerBundle = {
   manifest,
@@ -45,11 +52,13 @@ const workerInput: WorkerInput = workerBundle
 expectAssignable<WorkerInput>(workerInput)
 
 const worker = createMokupWorker(workerInput)
-expectType<{ fetch: (request: Request) => Promise<Response> }>(worker)
+expectAssignable<{ fetch: (request: Request) => Promise<Response> }>(worker)
+void worker.ready().then(session => expectType<AbortSignal>(session.signal))
 
 const nodeWorkerInput: NodeWorkerInput = workerBundle
 const nodeWorker = createNodeWorker(nodeWorkerInput)
-expectType<{ fetch: (request: Request) => Promise<Response> }>(nodeWorker)
+expectAssignable<{ fetch: (request: Request) => Promise<Response> }>(nodeWorker)
+expectType<Promise<void>>(nodeWorker.close())
 
 const configResult = defineConfig({ headers: { 'x-mokup': 'dev' } })
 expectAssignable<RouteDirectoryConfig | Promise<RouteDirectoryConfig>>(configResult)
@@ -65,6 +74,8 @@ onAfterAll(async () => {})
 
 const connectMiddleware = createConnectMiddleware(serverOptions)
 expectType<ReturnType<typeof createConnectMiddleware>>(connectMiddleware)
+expectType<AbortSignal>(connectMiddleware.signal)
+expectType<Promise<void>>(connectMiddleware.close())
 
 expectType<ReturnType<typeof createExpressMiddleware>>(
   createExpressMiddleware(serverOptions),
@@ -74,6 +85,15 @@ expectType<ReturnType<typeof createHonoMiddleware>>(
 )
 expectType<ReturnType<typeof createKoaMiddleware>>(
   createKoaMiddleware(serverOptions),
+)
+expectType<ReturnType<typeof createNextRouteHandler>>(
+  createNextRouteHandler(serverOptions),
+)
+expectType<ReturnType<typeof createNuxtHandler>>(
+  createNuxtHandler(serverOptions),
+)
+expectType<ReturnType<typeof createAstroEndpoint>>(
+  createAstroEndpoint(serverOptions),
 )
 
 const fetchServerOptions: FetchServerOptionsInput = {

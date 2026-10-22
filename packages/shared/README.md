@@ -55,4 +55,4 @@ For service worker diagnostics, reuse
 
 ## Node.js
 
-- `^20.19.0 || >=22.12.0`
+- `>=22.12.0`

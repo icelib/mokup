@@ -1,9 +1,8 @@
-import type { FetchHandler, ServerOptions } from './types'
+import type { ControlledFetchHandler, FetchHandler, ServerOptions } from './types'
 
 import { createRuntime } from '@mokup/runtime'
-import { toArrayBuffer, toRuntimeOptions } from './internal'
-import { handleFetchRequest } from './internal/handle-request'
-import { resolveResponseHeaders } from './internal/response-headers'
+import { toRuntimeOptions } from './internal'
+import { withRuntimeControls } from './internal/controls'
 
 /**
  * Create a fetch handler that executes mokup routes.
@@ -18,31 +17,19 @@ import { resolveResponseHeaders } from './internal/response-headers'
  */
 export function createFetchHandler(
   options: ServerOptions,
-): FetchHandler {
+): ControlledFetchHandler {
   const runtime = createRuntime(toRuntimeOptions(options))
   const onNotFound = options.onNotFound ?? 'next'
 
-  return async (request) => {
-    const result = await handleFetchRequest(runtime, request)
+  const handler: FetchHandler = async (request, context) => {
+    const result = await runtime.fetch(request, context)
     if (!result) {
       if (onNotFound === 'response') {
         return new Response(null, { status: 404 })
       }
       return null
     }
-    const responseBody = result.body === null
-      ? null
-      : typeof result.body === 'string'
-        ? result.body
-        : toArrayBuffer(result.body)
-    const { headers: scalarHeaders, setCookies } = resolveResponseHeaders(result)
-    const headers = new Headers(scalarHeaders)
-    for (const cookie of setCookies) {
-      headers.append('set-cookie', cookie)
-    }
-    return new Response(responseBody, {
-      status: result.status,
-      headers,
-    })
+    return result
   }
+  return withRuntimeControls(handler, runtime)
 }

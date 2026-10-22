@@ -41,6 +41,18 @@ export async function startPreviewSwServer(runtime: 'node' | 'worker', register 
       'import { defineHandler } from "mokup"',
       'export default defineHandler(c => ({ source: "typescript", query: c.req.query("value") }))',
     ].join('\n'))
+    await mkdir(path.join(mockDir, 'native'))
+    await writeFile(path.join(mockDir, 'native', '[id].get.ts'), [
+      'import { defineHttpHandler } from "mokup"',
+      'import { HttpResponse } from "mokup/http"',
+      'export default [',
+      '  defineHttpHandler(({ params }) => HttpResponse.json({ id: params.id, mode: "once" }), { once: true, status: 201 }),',
+      '  defineHttpHandler(function* ({ params }) {',
+      '    yield HttpResponse.json({ id: params.id, mode: "first" })',
+      '    return HttpResponse.json({ id: params.id, mode: "last" })',
+      '  }),',
+      ']',
+    ].join('\n'))
     await writeFile(path.join(mockDir, 'index.config.ts'), [
       'import { defineConfig } from "mokup"',
       'export default defineConfig({',

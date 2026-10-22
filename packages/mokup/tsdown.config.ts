@@ -4,6 +4,23 @@ import { createPackageConfig } from '../../scripts/tsdown-config.ts'
 
 export default createPackageConfig({
   entries: [
+    'src/network/mockServiceWorker',
+    'src/ws',
+    'src/testing',
+    'src/diagnostics',
+    'src/devframe',
+    'src/mcp',
+    'src/mcp-stdio',
+    'src/plugin',
+    'src/http',
+    'src/node',
+    'src/browser',
+    'src/scenario',
+    'src/recording',
+    'src/contract',
+    'src/graphql',
+    'src/sse',
+
     'src/cli-bin',
     'src/cli',
     'src/bundle',

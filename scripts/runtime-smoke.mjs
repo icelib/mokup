@@ -19,6 +19,18 @@ const { values } = parseArgs({
 })
 const packDir = resolve(values.dir)
 const abortController = new AbortController()
+const expectedPackages = [
+  '@mokup/cli',
+  '@mokup/client',
+  '@mokup/core',
+  '@mokup/msw',
+  '@mokup/playground',
+  '@mokup/query',
+  '@mokup/runtime',
+  '@mokup/server',
+  '@mokup/shared',
+  'mokup',
+]
 
 assert(!(values['pack-only'] && values['runtime-only']), 'Choose one smoke phase')
 
@@ -77,7 +89,7 @@ async function packPackages() {
     process.stdout.write(`runtime smoke packed ${pkg.name}@${pkg.version}\n`)
   }
 
-  assert.equal(packages.length, 9, 'Pack every publishable workspace')
+  assert.deepEqual(packages.map(pkg => pkg.name).sort(), expectedPackages, 'Pack every publishable workspace')
   await copyFile(join(scriptDir, 'runtime-smoke-consumer.mjs'), join(packDir, 'consumer.mjs'))
   const runtimeScripts = [
     'check-runtime-compat.mjs',
@@ -105,7 +117,7 @@ async function verifyInstalledPackages(consumerDir, packages) {
 
 async function runRuntime() {
   const { packages, runtimeScripts } = JSON.parse(await readFile(join(packDir, 'manifest.json'), 'utf8'))
-  assert.equal(packages.length, 9, 'Expected all nine packed workspaces')
+  assert.deepEqual(packages.map(pkg => pkg.name).sort(), expectedPackages, 'Expected every published package in the consumer')
   assert(Array.isArray(runtimeScripts), 'Pack the current runtime compatibility fixtures first')
   process.stdout.write(`runtime smoke installing ${packages.length} packed packages on ${process.version}\n`)
   const consumerDir = await realpath(await mkdtemp(join(tmpdir(), 'mokup-consumer-')))

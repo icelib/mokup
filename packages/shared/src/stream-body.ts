@@ -171,7 +171,7 @@ export function withStreamLifecycle<T>(stream: BodyReadableStream, task: () => T
 }
 
 /** Read the remaining body, or settle immediately if the stream has ended. */
-export function readStreamBody(stream: BodyReadableStream): Promise<Uint8Array | null> {
+export function readStreamBody(stream: BodyReadableStream, signal?: AbortSignal): Promise<Uint8Array | null> {
   return new Promise((resolve, reject) => {
     if (stream.errored != null) {
       guardQueuedError(stream)
@@ -193,8 +193,10 @@ export function readStreamBody(stream: BodyReadableStream): Promise<Uint8Array |
 
     const chunks: Uint8Array[] = []
     const listeners = new Map<string, StreamListener>()
+    let aborted: () => void
     let settled = false
     const cleanup = () => {
+      signal?.removeEventListener('abort', aborted)
       for (const [event, listener] of listeners) {
         removeListener(stream, event, listener)
       }
@@ -212,6 +214,7 @@ export function readStreamBody(stream: BodyReadableStream): Promise<Uint8Array |
       cleanup()
       reject(error)
     }
+    aborted = () => fail(signal?.reason)
     const finish = () => {
       if (settled) {
         return
@@ -254,6 +257,11 @@ export function readStreamBody(stream: BodyReadableStream): Promise<Uint8Array |
       else {
         fail(prematureCloseError())
       }
+    }
+    signal?.addEventListener('abort', aborted, { once: true })
+    if (signal?.aborted) {
+      aborted()
+      return
     }
     for (const [event, listener] of [
       ['error', fail],

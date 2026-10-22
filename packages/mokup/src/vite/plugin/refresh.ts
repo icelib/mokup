@@ -1,3 +1,4 @@
+import type { HttpHandler, UnhandledRequestPolicy } from '@mokup/runtime/http'
 import type { PreviewServer, ViteDevServer } from 'vite'
 import type { RouteConfigInfo, RouteIgnoreInfo, RouteSkipInfo } from '../../internal/core'
 import type { DiagnosticErrorMode, RouteTable, VitePluginOptions } from '../../shared/types'
@@ -5,6 +6,7 @@ import type { PluginState } from './state'
 import { collectRouteDiagnosticWarning, createRouteDiagnosticSections, reportDiagnostics } from '@mokup/shared/diagnostics'
 import { relative } from '@mokup/shared/pathe'
 import { createHonoApp, scanRoutes, sortRoutes } from '../../internal/core'
+import { createRouteSessions } from '../../shared/route-session'
 import { resolveDirs, toPosix } from '../../shared/utils'
 import { buildRouteSignature } from './routes'
 import { isViteDevServer } from './server'
@@ -74,6 +76,8 @@ function createRouteRefresher(params: {
   root: () => string
   logger: Parameters<typeof scanRoutes>[0]['logger']
   enableViteMiddleware: boolean
+  handlers?: readonly HttpHandler[]
+  onUnhandled?: UnhandledRequestPolicy
   virtualModuleIds?: string[]
   reloadOnChange?: boolean
   reloadOnFirstSwRoute?: boolean
@@ -85,13 +89,16 @@ function createRouteRefresher(params: {
     root,
     logger,
     enableViteMiddleware,
+    handlers,
+    onUnhandled,
     virtualModuleIds,
     reloadOnChange = false,
     reloadOnFirstSwRoute = false,
     errorOn,
   } = params
+  const routeSessions = createRouteSessions()
 
-  return async (
+  const refresh = async (
     server?: ViteDevServer | PreviewServer,
     options?: { force?: boolean, silent?: boolean },
   ) => {
@@ -190,9 +197,6 @@ function createRouteRefresher(params: {
         logger.info('Mokup diagnostics cleared.')
       }
     }
-    const app = enableViteMiddleware && serverRoutes.length > 0
-      ? createHonoApp(serverRoutes)
-      : null
     const signature = buildRouteSignature(
       routes,
       collectedDisabled,
@@ -202,6 +206,14 @@ function createRouteRefresher(params: {
     )
     const previousSignature = state.lastSignature
     const changed = signature !== previousSignature || options?.force
+    const compiledApp = enableViteMiddleware
+      ? createHonoApp(serverRoutes, {
+          session: routeSessions.get(server),
+          ...(handlers ? { handlers } : {}),
+          ...(onUnhandled ? { onUnhandled } : {}),
+        })
+      : null
+    const app = serverRoutes.length > 0 ? compiledApp : null
     // Prepare every field before publishing, and notify only after the complete
     // snapshot is visible to middleware, virtual modules, and Playground readers.
     const snapshot = {
@@ -238,6 +250,10 @@ function createRouteRefresher(params: {
       }
     }
   }
+  return Object.assign(refresh, {
+    getMockSession: routeSessions.get,
+    close: routeSessions.close,
+  })
 }
 
 export { createRouteRefresher }

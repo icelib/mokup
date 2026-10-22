@@ -51,6 +51,8 @@
     "repoctl.config.ts",
     "playwright.config.ts",
     "vitest.config.ts",
-    "tests/e2e/**/*.ts"
+    "tests/e2e/**/*.ts",
+    "playwright.conformance.config.ts",
+    "tests/conformance/**/*.ts"
   ]
 }

@@ -1,0 +1,25 @@
+{
+  "note": "Local observation on Node.js 24 / macOS arm64 after the HTTP session and matcher changes. No MSW comparison or CI thresholds; these values are not cross-machine performance guarantees. Filesystem scan timings depend on cache state and background activity. Refresh measures a complete rescan after one changed file, not an incremental scanner.",
+  "command": "node scripts/benchmark-mocking.mjs",
+  "node": "v24.18.0",
+  "platform": "darwin",
+  "arch": "arm64",
+  "rows": [
+    {
+      "routes": 100,
+      "requestP50Ms": 0.05633399999999256,
+      "requestP95Ms": 0.09508300000000247,
+      "coldMs": 4.032541999999992,
+      "scanMs": 10.564458000000002,
+      "rescanAfterOneChangeMs": 8.03725
+    },
+    {
+      "routes": 1000,
+      "requestP50Ms": 0.13949999999999818,
+      "requestP95Ms": 0.21716600000000597,
+      "coldMs": 15.188457999999997,
+      "scanMs": 75.314875,
+      "rescanAfterOneChangeMs": 72.33837499999998
+    }
+  ]
+}

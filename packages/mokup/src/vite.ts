@@ -30,3 +30,4 @@ export type {
  * }
  */
 export { createMokupPlugin as default } from './vite/plugin.js'
+export type { MokupVitePlugin } from './vite/plugin.js'

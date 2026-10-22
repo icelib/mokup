@@ -1,6 +1,7 @@
-import type { RuntimeRequest } from '@mokup/runtime'
 import { Buffer } from 'node:buffer'
 import { PassThrough } from 'node:stream'
+import { createRuntime } from '@mokup/runtime'
+import { http } from '@mokup/runtime/http'
 import { describe, expect, it, vi } from 'vitest'
 import { handleFetchRequest, handleNodeRequest } from '../src/internal/handle-request'
 import { toRuntimeRequestFromFetch, toRuntimeRequestFromNode } from '../src/internal/request'
@@ -87,14 +88,15 @@ describe('request byte preservation', () => {
 
   it('retains Node byte overrides while asynchronous runtime work is pending', async () => {
     const bytes = new Uint8Array(payload)
-    const engine = {
-      hasRoute: async () => true,
-      handle: vi.fn(async (request: RuntimeRequest) => {
+    const engine = createRuntime({
+      manifest: { version: 1, routes: [] },
+      handlers: [http.post('/echo', async ({ request }) => {
+        const input = await request.arrayBuffer()
         bytes.fill(1)
         await Promise.resolve()
-        return { status: 200, headers: {}, body: request.rawBodyBytes ?? null }
-      }),
-    }
+        return new Response(input, { headers: { 'content-type': 'application/octet-stream' } })
+      })],
+    })
     const result = await handleNodeRequest(engine, { method: 'POST', url: '/echo', on: vi.fn() }, bytes)
 
     expect(result?.body).toEqual(new Uint8Array(payload))
@@ -121,7 +123,7 @@ describe('request byte preservation', () => {
   it('leaves unmatched Fetch binary streams unread', async () => {
     const request = new Request('http://localhost/native', { method: 'POST', body: new Uint8Array(payload) })
     const readBytes = vi.spyOn(request, 'arrayBuffer')
-    const engine = { hasRoute: async () => false, handle: vi.fn() }
+    const engine = createRuntime({ manifest: { version: 1, routes: [] } })
 
     expect(await handleFetchRequest(engine, request)).toBeNull()
     expect(readBytes).not.toHaveBeenCalled()

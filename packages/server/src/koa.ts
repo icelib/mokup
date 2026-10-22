@@ -2,13 +2,18 @@ import type { NodeRequestLike } from './internal'
 import type { ServerOptions } from './types'
 
 import { Buffer } from 'node:buffer'
+import { IncomingMessage, ServerResponse } from 'node:http'
 import { createRuntime } from '@mokup/runtime'
 import { toRuntimeOptions } from './internal'
+import { withRuntimeControls } from './internal/controls'
 import { handleNodeRequest } from './internal/handle-request'
+import { dispatchNodeSession } from './internal/node-session'
 import { resolveResponseHeaders } from './internal/response-headers'
 
 interface KoaContextLike {
   req: NodeRequestLike
+  res?: ServerResponse
+  respond?: boolean | undefined
   request?: {
     body?: unknown
     headers?: Record<string, string | string[] | undefined>
@@ -39,11 +44,27 @@ export function createKoaMiddleware(
   const runtime = createRuntime(toRuntimeOptions(options))
   const onNotFound = options.onNotFound ?? 'next'
 
-  return async (ctx: KoaContextLike, next: KoaNext) => {
+  const middleware = async (ctx: KoaContextLike, next: KoaNext) => {
+    if (ctx.req instanceof IncomingMessage && ctx.res instanceof ServerResponse) {
+      if (await dispatchNodeSession(runtime, ctx.req, ctx.res, ctx.request?.body, () => {
+        ctx.respond = false
+      })) {
+        return
+      }
+      if (onNotFound === 'response') {
+        ctx.body = null
+        ctx.status = 404
+      }
+      else {
+        await next()
+      }
+      return
+    }
     const result = await handleNodeRequest(
       runtime,
       ctx.req,
-      ctx.request?.body,
+      undefined,
+      () => ctx.request?.body,
     )
     if (!result) {
       if (onNotFound === 'response') {
@@ -68,4 +89,5 @@ export function createKoaMiddleware(
       }
     }
   }
+  return withRuntimeControls(middleware, runtime)
 }

@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import RequestTimeline from './RequestTimeline.vue'
 
-type ResponseTab = 'body' | 'headers' | 'cookies'
+type ResponseTab = 'body' | 'headers' | 'cookies' | 'history'
 type BodyView = 'pretty' | 'raw' | 'preview'
 
 const props = defineProps<{
@@ -60,6 +61,9 @@ watch(hasPreview, (value) => {
     </div>
 
     <div class="flex flex-wrap items-center gap-4 border-b px-4 pt-2 text-[0.65rem] tracking-[0.1em] border-pg-border" role="tablist">
+      <button type="button" role="tab" :aria-selected="activeTab === 'history'" class="border-b-2 pb-2 transition" :class="activeTab === 'history' ? 'border-pg-accent text-pg-text-strong' : 'border-transparent text-pg-text-muted hover:text-pg-text-soft'" @click="activeTab = 'history'">
+        {{ t('response.historyTab') }}
+      </button>
       <button
         type="button"
         role="tab"
@@ -99,7 +103,8 @@ watch(hasPreview, (value) => {
     </div>
 
     <div class="flex-1 min-h-0 overflow-auto p-4">
-      <div v-if="activeTab === 'body'" class="flex h-full flex-col gap-3">
+      <RequestTimeline v-if="activeTab === 'history'" />
+      <div v-else-if="activeTab === 'body'" class="flex h-full flex-col gap-3">
         <div class="flex flex-wrap items-center gap-3 text-[0.6rem] tracking-[0.1em] text-pg-text-muted">
           <button
             type="button"

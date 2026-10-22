@@ -1,5 +1,5 @@
 import type { PreviewServer, ViteDevServer } from 'vite'
-import type { Logger, RouteRule } from './shared/types'
+import type { FileRouteRule, Logger } from './shared/types'
 
 import { loadRules as loadRulesShared } from '@mokup/shared/load-rules'
 import { loadModule, loadModuleWithVite } from './module-loader'
@@ -21,9 +21,9 @@ export async function loadRules(
   file: string,
   server: ViteDevServer | PreviewServer | undefined,
   logger: Logger,
-): Promise<RouteRule[]> {
+): Promise<FileRouteRule[]> {
   const moduleLoader = server
     ? (entry: string) => loadModuleWithVite(server, entry)
     : (entry: string) => loadModule(entry)
-  return loadRulesShared<RouteRule>(file, { loadModule: moduleLoader, logger })
+  return loadRulesShared<FileRouteRule>(file, { loadModule: moduleLoader, logger })
 }

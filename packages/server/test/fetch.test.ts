@@ -78,4 +78,20 @@ describe('fetch handler', () => {
 
     expect(response).toBeNull()
   })
+
+  it('returns streaming responses before completion and propagates cancellation', async () => {
+    let cancelled = false
+    const handler = createFetchHandler({
+      manifest: { version: 1, routes: [{ method: 'GET', url: '/stream', response: { type: 'module', module: 'stream' } }] },
+      moduleMap: { stream: { default: { handler: () => new Response(new ReadableStream({
+        start(controller) { controller.enqueue(new TextEncoder().encode('first')) },
+        cancel() { cancelled = true },
+      })) } } },
+    })
+    const response = await handler(new Request('http://localhost/stream'))
+    const reader = response!.body!.getReader()
+    expect(new TextDecoder().decode((await reader.read()).value)).toBe('first')
+    await reader.cancel()
+    expect(cancelled).toBe(true)
+  })
 })

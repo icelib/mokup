@@ -6,6 +6,8 @@
  *
  * await buildManifest({ dir: 'mock', outDir: '.mokup' })
  */
+export { diffContractFiles, runContractDiff } from './contract-command'
+export type { ContractDiffOptions, ContractDiffReport } from './contract-command'
 export { buildManifest, checkManifest } from './manifest'
 /**
  * Directory config helper for manifest builds.
@@ -42,3 +44,5 @@ export type {
  * await runCli(['node', 'mokup', 'build', '--dir', 'mock'])
  */
 export { createCli, runCli } from './program'
+export { createRecordingProxy } from './record-command'
+export type { RecordCommandOptions, RecordingProxy } from './record-command'

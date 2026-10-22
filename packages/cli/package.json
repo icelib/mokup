@@ -41,7 +41,8 @@
     "@mokup/runtime": "workspace:*",
     "@mokup/server": "workspace:*",
     "@mokup/shared": "workspace:*",
-    "commander": "^14.0.3"
+    "commander": "^14.0.3",
+    "yaml": "^2.9.1"
   },
   "tsd": {
     "compilerOptions": {

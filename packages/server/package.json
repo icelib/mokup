@@ -46,6 +46,21 @@
       "import": "./dist/hono.mjs",
       "default": "./dist/hono.mjs"
     },
+    "./next": {
+      "types": "./dist/next.d.ts",
+      "import": "./dist/next.mjs",
+      "default": "./dist/next.mjs"
+    },
+    "./nuxt": {
+      "types": "./dist/nuxt.d.ts",
+      "import": "./dist/nuxt.mjs",
+      "default": "./dist/nuxt.mjs"
+    },
+    "./astro": {
+      "types": "./dist/astro.d.ts",
+      "import": "./dist/astro.mjs",
+      "default": "./dist/astro.mjs"
+    },
     "./koa": {
       "types": "./dist/koa.d.ts",
       "import": "./dist/koa.mjs",
@@ -92,6 +107,15 @@
       ],
       "hono": [
         "dist/hono.d.ts"
+      ],
+      "next": [
+        "dist/next.d.ts"
+      ],
+      "nuxt": [
+        "dist/nuxt.d.ts"
+      ],
+      "astro": [
+        "dist/astro.d.ts"
       ],
       "koa": [
         "dist/koa.d.ts"

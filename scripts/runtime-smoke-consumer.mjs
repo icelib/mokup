@@ -67,7 +67,7 @@ async function checkFetch(bundle) {
   await expectJson(await worker.fetch(request()), pingBody)
 }
 
-function readWsMessage(socket) {
+function readWsMessage(socket, accept = () => true) {
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => {
       cleanup()
@@ -80,11 +80,16 @@ function readWsMessage(socket) {
       socket.off('close', onClose)
     }
     function onMessage(data) {
-      cleanup()
       try {
-        resolve(JSON.parse(data.toString()))
+        const message = JSON.parse(data.toString())
+        if (!accept(message)) {
+          return
+        }
+        cleanup()
+        resolve(message)
       }
       catch (error) {
+        cleanup()
         reject(error)
       }
     }
@@ -96,7 +101,7 @@ function readWsMessage(socket) {
       cleanup()
       reject(new Error('The playground WebSocket closed before sending its message'))
     }
-    socket.once('message', onMessage)
+    socket.on('message', onMessage)
     socket.once('error', onError)
     socket.once('close', onClose)
   })
@@ -129,14 +134,29 @@ async function checkNodeServer() {
     const snapshot = await readWsMessage(socket)
     assert.equal(snapshot.type, 'snapshot')
     assert.equal(snapshot.total, 0)
+    const diagnostics = []
     const [event] = await Promise.all([
-      readWsMessage(socket),
+      readWsMessage(socket, (message) => {
+        if (message.type !== 'diagnostic') {
+          return true
+        }
+        const entry = message.entry
+        assert(['request:start', 'request:match', 'response:mocked', 'request:end'].includes(entry?.type), 'Expected successful request diagnostics before the counter frame')
+        assert.equal(entry.error, undefined)
+        assert.equal(entry.method, 'GET')
+        assert.equal(entry.url, `${baseUrl}/ping`)
+        diagnostics.push(entry)
+        return false
+      }),
       fetch(`${baseUrl}/ping`, { signal: AbortSignal.timeout(10_000) })
         .then(response => expectJson(response, pingBody)),
     ])
     assert.equal(event.type, 'increment')
     assert.equal(event.routeKey, 'GET /ping')
     assert.equal(event.total, 1)
+    const mocked = diagnostics.find(entry => entry.type === 'response:mocked')
+    assert(mocked, 'The counter frame must follow the mocked response diagnostic')
+    assert.equal(mocked.status, 200)
     await expectJson(await fetch(`${baseUrl}/health`, { signal: AbortSignal.timeout(10_000) }), { ok: true })
     const playground = await fetch(`${baseUrl}/__mokup`, { signal: AbortSignal.timeout(10_000) })
     assert.equal(playground.status, 200)

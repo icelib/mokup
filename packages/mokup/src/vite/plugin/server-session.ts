@@ -9,6 +9,7 @@ interface ServerSessionOptions {
   refresh: (server: ViteDevServer | PreviewServer, options?: RefreshOptions) => Promise<void>
   onError: (error: unknown) => void
   onResume?: () => void | Promise<void>
+  onDispose?: () => void | Promise<void>
 }
 
 /** Own refresh work for one server generation, including across Vite restarts. */
@@ -32,7 +33,9 @@ export function createServerSession(options: ServerSessionOptions) {
       paused = true
       const drain = controller.close()
       const closeWatcher = watcher?.close()
-      disposal = Promise.allSettled([drain, closeWatcher]).then((results) => {
+      disposal = Promise.allSettled([drain, closeWatcher]).then(async (results) => {
+        const [cleanup] = await Promise.allSettled([Promise.resolve().then(() => options.onDispose?.())])
+        results.push(cleanup!)
         for (const result of results) {
           if (result.status === 'rejected') {
             onError(result.reason)
@@ -119,6 +122,7 @@ export function createServerSessions(options: {
   refresh: (server?: ViteDevServer | PreviewServer, options?: RefreshOptions) => Promise<void>
   onError: (error: unknown) => void
   onServerChange: (server: ViteDevServer | PreviewServer) => void
+  onDispose?: (server: ViteDevServer | PreviewServer) => void | Promise<void>
 }) {
   let current: ServerSession | null = null
   return {
@@ -130,6 +134,7 @@ export function createServerSessions(options: {
         server,
         refresh: options.refresh,
         onError: options.onError,
+        onDispose: () => options.onDispose?.(server),
         onResume: async () => {
           const abandoned = current
           current = session

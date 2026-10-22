@@ -8,6 +8,7 @@ import { createPlaygroundMiddleware } from '@mokup/core'
 import { Hono } from '@mokup/shared/hono'
 import { describe, expect, it, vi } from 'vitest'
 import { configurePreviewServer } from '../src/vite/plugin/server-hooks'
+import { createResponseStream } from './helpers/response-stream'
 
 async function createPreview(options: {
   path?: string
@@ -80,7 +81,7 @@ async function createPreview(options: {
     async request(url: string) {
       const req = Object.assign(Readable.from([]), { url, method: 'GET', headers: {} }) as IncomingMessage
       const result = { status: 200, body: '', headers: {} as Record<string, string> }
-      const res = {
+      const res = createResponseStream({
         get statusCode() {
           return result.status
         },
@@ -96,7 +97,7 @@ async function createPreview(options: {
           result.body = typeof chunk === 'string' ? chunk : Buffer.from(chunk ?? []).toString()
           res.writableEnded = true
         },
-      }
+      })
       try {
         for (const { handle } of stack) {
           const next = vi.fn()

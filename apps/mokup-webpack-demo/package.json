@@ -4,7 +4,7 @@
   "version": "0.0.21",
   "private": true,
   "engines": {
-    "node": ">=24.15.0"
+    "node": ">=24.15.0 <25"
   },
   "scripts": {
     "dev": "tsx node_modules/webpack-cli/bin/cli.js serve --config webpack.config.ts --mode development",

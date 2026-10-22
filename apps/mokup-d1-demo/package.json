@@ -5,7 +5,7 @@
   "private": true,
   "homepage": "https://mokup.icebreaker.top",
   "engines": {
-    "node": ">=24.15.0"
+    "node": ">=24.15.0 <25"
   },
   "scripts": {
     "dev": "vite --host",
@@ -28,6 +28,8 @@
   "devDependencies": {
     "@cloudflare/vite-plugin": "catalog:",
     "@cloudflare/workers-types": "^5.20261014.1",
+    "@fontsource/fraunces": "^5.3.0",
+    "@fontsource/space-grotesk": "^5.3.0",
     "@tailwindcss/vite": "catalog:",
     "@vitejs/plugin-vue": "catalog:",
     "drizzle-kit": "^0.31.11",

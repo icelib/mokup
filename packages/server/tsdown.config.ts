@@ -13,5 +13,8 @@ export default createPackageConfig({
     'src/worker-node',
     'src/fetch-server',
     'src/hono',
+    'src/next',
+    'src/nuxt',
+    'src/astro',
   ],
 })

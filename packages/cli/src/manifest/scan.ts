@@ -45,7 +45,7 @@ export async function scanManifest(options: BuildOptions = {}, strictInputs = fa
 
   const files = await collectFiles(dirs)
   const routes: ManifestRoute[] = []
-  const seen = new Set<string>()
+  const seen = new Map<string, { file: string, composable: boolean }>()
   const handlerSources = new Set<string>()
   const handlerModuleMap = new Map<string, string>()
   const configCache = new Map<string, RouteDirectoryConfig | null>()
@@ -142,11 +142,12 @@ export async function scanManifest(options: BuildOptions = {}, strictInputs = fa
         continue
       }
       const key = `${resolved.method} ${resolved.template}`
-      if (seen.has(key)) {
+      const previous = seen.get(key)
+      if (previous && (previous.file !== fileInfo.file || !previous.composable)) {
         duplicateRoutes.add(key)
         options.log?.(`Duplicate mock route ${key} from ${fileInfo.file}`)
       }
-      seen.add(key)
+      seen.set(key, { file: fileInfo.file, composable: rule.once === true || rule.handlerType === 'http' })
       const response = buildResponse(
         rule.handler,
         {
@@ -176,6 +177,8 @@ export async function scanManifest(options: BuildOptions = {}, strictInputs = fa
           })
       const route: ManifestRoute = {
         method: resolved.method,
+        ...(rule.handlerType ? { handlerType: rule.handlerType } : {}),
+        ...(rule.once !== undefined ? { once: rule.once } : {}),
         url: resolved.template,
         tokens: resolved.tokens,
         score: resolved.score,

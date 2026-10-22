@@ -112,6 +112,10 @@ export interface CheckResult {
  * const rule: RouteRule = { handler: { ok: true } }
  */
 export interface RouteRule {
+  /** Native Fetch authoring is explicit; existing files default to Hono. */
+  handlerType?: 'hono' | 'http'
+  /** Consumption belongs to each mock session. */
+  once?: boolean
   /** Route handler or static value. */
   handler: unknown
   /**

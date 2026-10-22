@@ -3,7 +3,7 @@ import { resolve } from 'node:path'
 import { createPackageConfig } from '../../scripts/tsdown-config.ts'
 
 export default createPackageConfig({
-  entries: ['src/index'],
+  entries: ['src/index', 'src/ws', 'src/diagnostics', 'src/plugin', 'src/mcp', 'src/http', 'src/scenario', 'src/recording', 'src/contract', 'src/graphql', 'src/sse'],
   async onBuildDone({ distDir }) {
     const files = await readdir(distDir, { withFileTypes: true })
 

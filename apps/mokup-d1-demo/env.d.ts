@@ -16,10 +16,3 @@ declare module 'virtual:mokup-bundle' {
   export default mokupBundle
   export { mokupBundle }
 }
-
-declare module 'hono' {
-  interface ContextVariableMap {
-    db: import('drizzle-orm/d1').DrizzleD1Database<typeof import('./db/schema')>
-    auth: ReturnType<typeof import('better-auth').betterAuth>
-  }
-}

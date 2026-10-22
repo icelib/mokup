@@ -1,3 +1,6 @@
+/** Astro endpoint adapter. */
+export { createAstroEndpoint } from './astro'
+export type { AstroEndpointContextLike, AstroEndpointHandler, AstroEndpointHandlers } from './astro'
 /**
  * Connect middleware factory.
  *
@@ -65,6 +68,12 @@ export { createHonoMiddleware } from './hono'
  * import { createKoaMiddleware } from '@mokup/server/node'
  */
 export { createKoaMiddleware } from './koa'
+/** Next.js App Router and Pages Router adapters. */
+export { createNextApiHandler, createNextRouteHandler } from './next'
+export type { NextApiRequestLike, NextApiResponseLike, NextRouteContext, NextRouteHandler, NextRouteHandlers } from './next'
+/** Nuxt/Nitro event adapter. */
+export { createNuxtHandler } from './nuxt'
+export type { NuxtEventHandler, NuxtEventLike } from './nuxt'
 /**
  * Node worker helper.
  *

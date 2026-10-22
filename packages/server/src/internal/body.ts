@@ -91,6 +91,7 @@ async function resolveBody(
   body: unknown,
   contentType: string,
   stream?: ReadableStreamLike,
+  signal?: AbortSignal,
 ): Promise<ResolvedRequestBody> {
   if (typeof body !== 'undefined') {
     if (typeof body === 'string') {
@@ -114,7 +115,7 @@ async function resolveBody(
     return { body: undefined }
   }
 
-  const rawBytes = await readStreamBody(stream)
+  const rawBytes = await readStreamBody(stream, signal)
   if (!rawBytes) {
     return { body: undefined }
   }

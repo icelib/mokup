@@ -1,4 +1,5 @@
 import type { RouteToken } from '@mokup/runtime'
+import type { HttpRouteRule } from '@mokup/runtime/http'
 import type { Context, MiddlewareHandler } from '@mokup/shared/hono'
 
 export type { DiagnosticCategory, DiagnosticErrorMode } from '@mokup/shared'
@@ -81,6 +82,8 @@ export type RouteResponse = RouteStaticResponse | RequestHandler
  * }
  */
 export interface RouteRule {
+  handlerType?: 'hono'
+  once?: boolean
   /** Handler for the route. */
   handler: RouteResponse
   /**
@@ -108,6 +111,8 @@ export interface RouteRule {
    */
   delay?: number
 }
+
+export type FileRouteRule = RouteRule | HttpRouteRule
 
 /**
  * Directory-level config for server dev scanning.
@@ -237,6 +242,8 @@ export interface ResolvedMiddleware {
  * }
  */
 export interface ResolvedRoute {
+  handlerType?: 'hono' | 'http'
+  once?: boolean
   file: string
   template: string
   method: HttpMethod

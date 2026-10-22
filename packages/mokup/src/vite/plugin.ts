@@ -1,3 +1,4 @@
+import type { MockSession } from '@mokup/runtime/http'
 import type { Plugin, PreviewServer, ViteDevServer } from 'vite'
 import type { MokupPluginOptions } from '../shared/types'
 import type { PluginState } from './plugin/state'
@@ -22,7 +23,11 @@ import { createServerSessions } from './plugin/server-session'
 import { buildSwLifecycleInlineScript, buildSwLifecycleScript } from './plugin/sw'
 import { loadMokupVirtualModule, resolveMokupVirtualId } from './plugin/virtual-modules'
 
-export function createMokupPlugin(options: MokupPluginOptions = {}): Plugin {
+export interface MokupVitePlugin extends Plugin {
+  api: { getMockSession: () => MockSession }
+}
+
+export function createMokupPlugin(options: MokupPluginOptions = {}): MokupVitePlugin {
   let root = cwd()
   let base = '/'
   let command: 'serve' | 'build' = 'serve'
@@ -45,6 +50,9 @@ export function createMokupPlugin(options: MokupPluginOptions = {}): Plugin {
   let currentServer: ViteDevServer | PreviewServer | null = null
   const normalizedOptions = normalizeMokupOptions(options)
   const runtime = normalizedOptions.runtime ?? 'node'
+  if (runtime === 'worker' && (normalizedOptions.handlers?.length || normalizedOptions.onUnhandled)) {
+    throw new TypeError('Vite handlers and onUnhandled currently require runtime: "node"; configure deployed Worker sessions separately.')
+  }
   const enableViteMiddleware = runtime !== 'worker'
   const optionList = normalizeOptions(normalizedOptions)
   const logEnabled = optionList.every(entry => entry.log !== false)
@@ -118,6 +126,8 @@ export function createMokupPlugin(options: MokupPluginOptions = {}): Plugin {
     root: () => root,
     logger,
     enableViteMiddleware,
+    ...(normalizedOptions.handlers ? { handlers: normalizedOptions.handlers } : {}),
+    ...(normalizedOptions.onUnhandled ? { onUnhandled: normalizedOptions.onUnhandled } : {}),
     virtualModuleIds: [resolvedBundleVirtualId],
     // Browser-only routes already have an automatic SW updater. Preserve that
     // page and its update queue unless a server bundle also needs refreshing.
@@ -130,12 +140,21 @@ export function createMokupPlugin(options: MokupPluginOptions = {}): Plugin {
     refresh: scanRoutes,
     onError: error => logger.error('Mock route refresh failed:', error),
     onServerChange: (server) => { currentServer = server },
+    onDispose: server => scanRoutes.close(server),
   })
-  const refreshRoutes: typeof scanRoutes = (server, refreshOptions) => command === 'build'
+  const refreshRoutes: (...args: Parameters<typeof scanRoutes>) => ReturnType<typeof scanRoutes> = (server, refreshOptions) => command === 'build'
     ? scanRoutes(server, refreshOptions)
     : sessions.refresh(server, refreshOptions)
   return {
     name: 'mokup:vite',
+    api: {
+      getMockSession: () => {
+        if (!currentServer) {
+          throw new Error('Configure the Mokup plugin before accessing its HTTP session.')
+        }
+        return scanRoutes.getMockSession(currentServer)
+      },
+    },
     enforce: 'pre',
     resolveId(id) {
       return resolveMokupVirtualId(id, {
@@ -246,6 +265,7 @@ export function createMokupPlugin(options: MokupPluginOptions = {}): Plugin {
         playgroundMiddleware,
         swConfig,
         enableViteMiddleware,
+        getMockSession: () => scanRoutes.getMockSession(server),
         refreshRoutes: (_server, refreshOptions) => session.refresh(refreshOptions),
         resolveAllDirs,
         watchEnabled,
@@ -264,6 +284,7 @@ export function createMokupPlugin(options: MokupPluginOptions = {}): Plugin {
         playgroundMiddleware,
         swConfig,
         enableViteMiddleware,
+        getMockSession: () => scanRoutes.getMockSession(server),
         refreshRoutes: (_server, refreshOptions) => session.refresh(refreshOptions),
         resolveAllDirs,
         watchEnabled,

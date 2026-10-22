@@ -11,10 +11,15 @@ const props = defineProps<{
   visibleCount: number
   totalCount: number
   requestMode: 'server' | 'sw' | 'sw-registering'
+  scenarioNames: string[]
+  activeScenario: string
+  scenarioError: string
 }>()
 
 const emit = defineEmits<{
   (event: 'refresh'): void
+  (event: 'select-scenario', name: string): void
+  (event: 'reset-scenario'): void
 }>()
 
 const { locale, t } = useI18n()
@@ -53,6 +58,13 @@ function toggleLocale() {
 function handleRefresh() {
   emit('refresh')
 }
+
+function handleScenario(event: Event) {
+  const name = (event.target as HTMLSelectElement).value
+  if (name) {
+    emit('select-scenario', name)
+  }
+}
 </script>
 
 <template>
@@ -72,6 +84,25 @@ function handleRefresh() {
       </UiPill>
     </div>
     <div class="flex flex-wrap items-center gap-2">
+      <div v-if="props.scenarioNames.length" class="flex items-center gap-1.5">
+        <label for="mokup-scenario" class="text-pg-text-muted">{{ t('header.scenario') }}</label>
+        <select
+          id="mokup-scenario"
+          class="rounded border px-2 py-1 text-xs border-pg-border bg-pg-surface-card text-pg-text"
+          :value="props.activeScenario"
+          @change="handleScenario"
+        >
+          <option v-for="name in props.scenarioNames" :key="name" :value="name">
+            {{ name }}
+          </option>
+        </select>
+        <UiChipButton size="xs" :title="t('header.scenarioReset')" @click="emit('reset-scenario')">
+          {{ t('header.scenarioReset') }}
+        </UiChipButton>
+      </div>
+      <span v-if="props.scenarioError" class="text-red-400" role="status">
+        {{ t('header.scenarioError', { message: props.scenarioError }) }}
+      </span>
       <UiChipButton
         size="xs"
         :title="t('header.languageToggle')"

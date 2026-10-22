@@ -1,10 +1,20 @@
 import { mkdir, mkdtemp, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { http, HttpResponse } from '@mokup/runtime/http'
 import { describe, expect, it, vi } from 'vitest'
 import { createMokupPlugin } from '../src/vite/plugin'
 
 describe('vite plugin basics', () => {
+  it('rejects native session options when Vite only emits a Worker bundle', () => {
+    const handler = http.get('/native', () => HttpResponse.text('native'))
+    const expected = /currently require runtime: "node"/
+    expect(() => createMokupPlugin({ runtime: 'worker', handlers: [handler] })).toThrow(expected)
+    expect(() => createMokupPlugin({ runtime: 'worker', onUnhandled: 'error' })).toThrow(expected)
+    expect(() => createMokupPlugin({ runtime: 'worker', onUnhandled: 'bypass' })).toThrow(expected)
+    expect(() => createMokupPlugin({ runtime: 'worker', handlers: [] })).not.toThrow()
+  })
+
   it('resolves and loads virtual modules', async () => {
     const root = await mkdtemp(join(tmpdir(), 'mokup-vite-'))
     const mockDir = join(root, 'mock')

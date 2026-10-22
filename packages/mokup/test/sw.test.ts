@@ -135,6 +135,8 @@ describe('mokup SW', () => {
 
     expect(code).toContain('return { handler: value }')
     expect(code).toContain('handler: handlerRule.handler')
+    expect(code).toContain('handlerRule.handlerType === \'http\'')
+    expect(code).toContain('typeof handlerRule.once === \'boolean\'')
     expect(code).toContain('handler: responseRule.response')
   })
 

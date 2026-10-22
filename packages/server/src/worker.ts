@@ -1,4 +1,4 @@
-import type { ServerOptions, WorkerBundle, WorkerInput } from './types'
+import type { RuntimeControls, ServerOptions, WorkerBundle, WorkerInput } from './types'
 
 import { createFetchHandler } from './fetch'
 
@@ -14,8 +14,10 @@ import { createFetchHandler } from './fetch'
  */
 export interface FetchWorker {
   /** Fetch handler for the Worker runtime. */
-  fetch: (request: Request) => Promise<Response>
+  fetch: (request: Request, env?: unknown, executionCtx?: unknown) => Promise<Response>
 }
+
+export interface ControlledFetchWorker extends FetchWorker, RuntimeControls {}
 
 function isStringInput(value: unknown): value is string {
   return typeof value === 'string'
@@ -33,6 +35,8 @@ function normalizeWorkerOptions(bundle: WorkerBundle): ServerOptions {
   const options: ServerOptions = {
     manifest: bundle.manifest,
     onNotFound: bundle.onNotFound ?? 'response',
+    ...(bundle.handlers ? { handlers: bundle.handlers } : {}),
+    ...(bundle.onUnhandled ? { onUnhandled: bundle.onUnhandled } : {}),
   }
   if (typeof bundle.moduleBase !== 'undefined') {
     options.moduleBase = bundle.moduleBase
@@ -43,13 +47,13 @@ function normalizeWorkerOptions(bundle: WorkerBundle): ServerOptions {
   return options
 }
 
-function createWorker(handlerOptions: ServerOptions): FetchWorker {
+function createWorker(handlerOptions: ServerOptions): ControlledFetchWorker {
   const handler = createFetchHandler(handlerOptions)
-  return {
-    fetch: async (request: Request) => {
-      return (await handler(request)) ?? new Response('Not Found', { status: 404 })
+  return Object.assign({
+    fetch: async (request: Request, env?: unknown, executionCtx?: unknown) => {
+      return (await handler(request, { context: { env, executionCtx } })) ?? new Response('Not Found', { status: 404 })
     },
-  }
+  }, handler)
 }
 
 /**
@@ -65,7 +69,7 @@ function createWorker(handlerOptions: ServerOptions): FetchWorker {
  */
 export function createMokupWorker(
   input: WorkerInput,
-): FetchWorker {
+): ControlledFetchWorker {
   if (isStringInput(input)) {
     throw new TypeError('createMokupWorker(dir) is only supported in Node runtimes.')
   }

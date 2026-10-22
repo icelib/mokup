@@ -213,7 +213,6 @@ describe('runtime handling', () => {
   })
 
   it('applies module middlewares, delay, and string handlers', async () => {
-    vi.useFakeTimers()
     const { moduleBase } = await createTempModule(handlerSource)
     const runtime = createRuntime({
       manifest: {
@@ -249,9 +248,9 @@ describe('runtime handling', () => {
     const stringResult = await runtime.handle(createRequest('/module/string'))
     expect(stringResult?.body).toBe('hello')
 
-    const mwPromise = runtime.handle(createRequest('/module/mw'))
-    await vi.runAllTimersAsync()
-    const mwResult = await mwPromise
+    const started = Date.now()
+    const mwResult = await runtime.handle(createRequest('/module/mw'))
+    expect(Date.now() - started).toBeGreaterThanOrEqual(10)
     expect(mwResult?.headers['x-mw']).toBe('1')
     vi.useRealTimers()
   })

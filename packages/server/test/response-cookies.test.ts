@@ -4,10 +4,10 @@ import { createFetchHandler } from '../src/fetch'
 import { applyRuntimeResultToNode } from '../src/internal/runtime'
 import { createKoaMiddleware } from '../src/koa'
 
-const runtimeHandle = vi.hoisted(() => vi.fn())
+const { runtimeHandle, runtimeFetch } = vi.hoisted(() => ({ runtimeHandle: vi.fn(), runtimeFetch: vi.fn() }))
 vi.mock('@mokup/runtime', async importOriginal => ({
   ...await importOriginal<typeof import('@mokup/runtime')>(),
-  createRuntime: () => ({ hasRoute: async () => true, handle: runtimeHandle }),
+  createRuntime: () => ({ hasRoute: async () => true, handle: runtimeHandle, fetch: runtimeFetch }),
 }))
 
 const cookies = ['a=one; Expires=Wed, 21 Oct 2037 07:28:00 GMT', 'b=two; Path=/']
@@ -19,7 +19,10 @@ const result: RuntimeResult = {
 }
 
 describe('response cookie compatibility', () => {
-  afterEach(() => runtimeHandle.mockReset())
+  afterEach(() => {
+    runtimeHandle.mockReset()
+    runtimeFetch.mockReset()
+  })
 
   it('replaces a Node response cookie before appending the remaining fields', () => {
     const written = new Map<string, string[]>([['set-cookie', ['previous=removed']]])
@@ -66,8 +69,12 @@ describe('response cookie compatibility', () => {
     expect(written.get('x-test')).toEqual(['kept'])
   })
 
-  it('uses complete cookie metadata without duplicating any case of the legacy scalar header', async () => {
-    runtimeHandle.mockResolvedValueOnce(result)
+  it('preserves native response cookies without serializing scalar headers', async () => {
+    const headers = new Headers({ 'X-Test': 'kept' })
+    for (const cookie of cookies) {
+      headers.append('set-cookie', cookie)
+    }
+    runtimeFetch.mockResolvedValueOnce(new Response('ok', { headers }))
     const handler = createFetchHandler({ manifest: { version: 1, routes: [] } })
     const response = await handler(new Request('http://localhost/cookies'))
 
@@ -75,8 +82,8 @@ describe('response cookie compatibility', () => {
     expect(response?.headers.get('x-test')).toBe('kept')
   })
 
-  it('accepts older runtime results with only a scalar cookie header', async () => {
-    runtimeHandle.mockResolvedValueOnce({ status: 200, headers: { 'Set-Cookie': cookies[0] }, body: null })
+  it('preserves a single cookie on a bodyless response', async () => {
+    runtimeFetch.mockResolvedValueOnce(new Response(null, { headers: { 'Set-Cookie': cookies[0]! } }))
     const handler = createFetchHandler({ manifest: { version: 1, routes: [] } })
     const response = await handler(new Request('http://localhost/cookies'))
 

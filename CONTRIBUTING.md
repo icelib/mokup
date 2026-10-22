@@ -2,7 +2,7 @@
 
 ## Baseline
 
-- Use Node.js `>=24.15.0` for development and builds; CI uses Node.js 24 LTS
+- Use Node.js `>=24.15.0 <25` for development and builds; CI uses Node.js 24 LTS
 - Use the pnpm version pinned in the root `package.json`
 - Preserve the published packages' runtime requirement: `>=22.12.0`
 - Keep published packages ESM-only
@@ -73,7 +73,7 @@ The guard blocks:
 - Reintroducing `@mokup/shared/esbuild`
 - Direct `esbuild` imports in repository code or config
 - Reintroducing `tsup`, `unbuild`, or `build.config.*` in active code/config
-- The root workspace or demo apps drifting away from `engines.node: ">=24.15.0"`
+- The root workspace or demo apps drifting away from `engines.node: ">=24.15.0 <25"`
 - Published library packages drifting away from:
   - `type: "module"`
   - `engines.node: ">=22.12.0"`

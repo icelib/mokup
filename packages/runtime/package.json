@@ -15,6 +15,56 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.mjs",
       "default": "./dist/index.mjs"
+    },
+    "./http": {
+      "types": "./dist/http.d.ts",
+      "import": "./dist/http.mjs",
+      "default": "./dist/http.mjs"
+    },
+    "./scenario": {
+      "types": "./dist/scenario.d.ts",
+      "import": "./dist/scenario.mjs",
+      "default": "./dist/scenario.mjs"
+    },
+    "./recording": {
+      "types": "./dist/recording.d.ts",
+      "import": "./dist/recording.mjs",
+      "default": "./dist/recording.mjs"
+    },
+    "./contract": {
+      "types": "./dist/contract.d.ts",
+      "import": "./dist/contract.mjs",
+      "default": "./dist/contract.mjs"
+    },
+    "./graphql": {
+      "types": "./dist/graphql.d.ts",
+      "import": "./dist/graphql.mjs",
+      "default": "./dist/graphql.mjs"
+    },
+    "./sse": {
+      "types": "./dist/sse.d.ts",
+      "import": "./dist/sse.mjs",
+      "default": "./dist/sse.mjs"
+    },
+    "./ws": {
+      "types": "./dist/ws.d.ts",
+      "import": "./dist/ws.mjs",
+      "default": "./dist/ws.mjs"
+    },
+    "./diagnostics": {
+      "types": "./dist/diagnostics.d.ts",
+      "import": "./dist/diagnostics.mjs",
+      "default": "./dist/diagnostics.mjs"
+    },
+    "./plugin": {
+      "types": "./dist/plugin.d.ts",
+      "import": "./dist/plugin.mjs",
+      "default": "./dist/plugin.mjs"
+    },
+    "./mcp": {
+      "types": "./dist/mcp.d.ts",
+      "import": "./dist/mcp.mjs",
+      "default": "./dist/mcp.mjs"
     }
   },
   "publishConfig": {
@@ -23,6 +73,37 @@
   "main": "./dist/index.mjs",
   "module": "./dist/index.mjs",
   "types": "./dist/index.d.ts",
+  "typesVersions": {
+    "*": {
+      "http": [
+        "dist/http.d.ts"
+      ],
+      "scenario": [
+        "dist/scenario.d.ts"
+      ],
+      "recording": [
+        "dist/recording.d.ts"
+      ],
+      "contract": [
+        "dist/contract.d.ts"
+      ],
+      "graphql": [
+        "dist/graphql.d.ts"
+      ],
+      "sse": [
+        "dist/sse.d.ts"
+      ],
+      "ws": [
+        "dist/ws.d.ts"
+      ],
+      "diagnostics": [
+        "dist/diagnostics.d.ts"
+      ],
+      "plugin": [
+        "dist/plugin.d.ts"
+      ]
+    }
+  },
   "files": [
     "dist"
   ],
@@ -38,12 +119,22 @@
     "test:types": "tsd"
   },
   "dependencies": {
-    "@mokup/shared": "workspace:*"
+    "@mokup/shared": "workspace:*",
+    "@msw/url": "^0.1.2",
+    "@mswjs/interceptors": "^0.41.9",
+    "ajv": "^8.20.0",
+    "ajv-formats": "^3.0.1",
+    "graphql": "^16.14.2"
   },
   "tsd": {
     "compilerOptions": {
       "module": "NodeNext",
       "rootDir": "."
     }
+  },
+  "devDependencies": {
+    "@hono/node-server": "catalog:",
+    "@types/ws": "^8.18.2",
+    "ws": "^8.22.0"
   }
 }

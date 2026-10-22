@@ -1,4 +1,5 @@
-import type { Manifest, ModuleMap, RuntimeOptions } from '@mokup/runtime'
+import type { createRuntime, Manifest, ModuleMap, RuntimeOptions } from '@mokup/runtime'
+import type { HttpRequestContext } from '@mokup/runtime/http'
 
 /**
  * Options for server adapters built on top of the runtime.
@@ -28,7 +29,12 @@ export interface ServerOptions extends RuntimeOptions {
  *
  * const handler: FetchHandler = async (request) => new Response('ok')
  */
-export type FetchHandler = (request: Request) => Promise<Response | null>
+export type FetchHandler = (request: Request, context?: HttpRequestContext) => Promise<Response | null>
+
+/** Controls share the exact runtime that dispatches this adapter's requests. */
+export type RuntimeControls = Pick<ReturnType<typeof createRuntime>, 'signal' | 'ready' | 'use' | 'resetHandlers' | 'restoreHandlers' | 'listHandlers' | 'setOnUnhandled' | 'scenario' | 'selectScenario' | 'resetScenario' | 'events' | 'close'>
+
+export type ControlledFetchHandler = FetchHandler & RuntimeControls
 
 /**
  * Bundle input for Worker helpers.
@@ -40,7 +46,7 @@ export type FetchHandler = (request: Request) => Promise<Response | null>
  *   manifest: { version: 1, routes: [] },
  * }
  */
-export interface WorkerBundle {
+export interface WorkerBundle extends Pick<RuntimeOptions, 'handlers' | 'onUnhandled' | 'scenario'> {
   /** Manifest for runtime execution. */
   manifest: Manifest
   /**

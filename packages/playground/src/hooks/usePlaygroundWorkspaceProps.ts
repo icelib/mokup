@@ -19,6 +19,8 @@ function usePlaygroundWorkspaceProps(params: {
   refs: Record<string, { value: unknown }>
   getRouteCount: (route: PlaygroundRoute) => number
   handleRefresh: () => void
+  selectScenario: (name: string) => void
+  resetScenario: () => void
   toggleSidebar: () => void
   setActiveGroup: (key: string) => void
   setRouteMode: (mode: 'active' | 'disabled' | 'ignored') => void
@@ -55,6 +57,8 @@ function usePlaygroundWorkspaceProps(params: {
   const workspaceHandlers = {
     getRouteCount: params.getRouteCount,
     onRefresh: params.handleRefresh,
+    onSelectScenario: params.selectScenario,
+    onResetScenario: params.resetScenario,
     onToggleCollapse: params.toggleSidebar,
     onSelectGroup: params.setActiveGroup,
     onSetRouteMode: params.setRouteMode,

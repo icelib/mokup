@@ -14,7 +14,7 @@
     "url": "https://github.com/sonofmagic/mokup/issues"
   },
   "engines": {
-    "node": ">=24.15.0"
+    "node": ">=24.15.0 <25"
   },
   "scripts": {
     "build": "cross-env NODE_OPTIONS=--max-old-space-size=4096 turbo run build",
@@ -49,7 +49,7 @@
     "test:e2e:ui": "pnpm run test:e2e:root --ui && pnpm run test:e2e:apps:ui",
     "test:e2e:apps:ui": "turbo run test:e2e --filter=./apps/* --concurrency=${E2E_CONCURRENCY:-3} -- --ui",
     "release": "pnpm change",
-    "release:check": "pnpm run guard:migration && pnpm run lint:lines:guard && pnpm run test:release-tools && pnpm run typecheck && pnpm run build && pnpm run lint && pnpm test && pnpm run test:types && pnpm run test:e2e:serial && pnpm run test:e2e:d1 && pnpm run release:pack-check",
+    "release:check": "pnpm run guard:migration && pnpm run lint:lines:guard && pnpm run test:release-tools && pnpm run typecheck && pnpm run build && pnpm run lint && pnpm run test && pnpm run test:types && pnpm run test:e2e:serial && pnpm run test:e2e:d1 && pnpm run release:pack-check && pnpm run test:mock-package-contract",
     "publish-packages": "repo release stable publish",
     "preinstall": "npx only-allow pnpm",
     "prepare": "husky",
@@ -68,7 +68,12 @@
     "repo:check": "repo check",
     "repo:doctor": "repo doctor",
     "test:runtime": "node scripts/check-runtime-compat.mjs",
+    "test:mock-package-contract": "node scripts/check-mock-package-contract.mjs",
     "test:vite-compat": "node scripts/check-vite-compat.mjs",
+    "test:deployment-templates": "node scripts/check-deployment-templates.mjs",
+    "test:provider-matrix": "node scripts/runtime-provider-smoke.mjs",
+    "test:conformance": "playwright test --config playwright.conformance.config.ts",
+    "bench:mocking": "node scripts/benchmark-mocking.mjs",
     "sync:npmmirror": "repo release sync-npmmirror --all",
     "release:sync-npmmirror": "repo release sync-npmmirror --published",
     "test:e2e:d1": "pnpm --filter mokup-d1-demo test:e2e:d1"
@@ -80,7 +85,7 @@
     "@types/fs-extra": "^11.0.4",
     "@types/node": "catalog:",
     "@types/semver": "^7.8.0",
-    "@vitest/coverage-v8": "~5.0.4",
+    "@vitest/coverage-v8": "~5.0.5",
     "axios": "catalog:",
     "ci-info": "^4.4.0",
     "cross-env": "^10.1.0",
@@ -107,7 +112,7 @@
     "type-fest": "^5.10.0",
     "typescript": "catalog:",
     "vite": "catalog:",
-    "vitest": "~5.0.4",
+    "vitest": "~5.0.5",
     "yaml": "^2.9.1"
   },
   "publishConfig": {

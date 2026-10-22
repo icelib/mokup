@@ -36,7 +36,13 @@ for (const base of ['/', '/base/']) {
     })
     const { url, close } = await listen(server)
     const pageErrors: string[] = []
+    const externalRequests: string[] = []
     page.on('pageerror', error => pageErrors.push(error.message))
+    page.on('request', (request) => {
+      if (new URL(request.url()).origin !== url) {
+        externalRequests.push(request.url())
+      }
+    })
     try {
       for (const suffix of ['', 'index.html']) {
         const routes = page.waitForResponse(`${url}${base}routes`)
@@ -49,6 +55,7 @@ for (const base of ['/', '/base/']) {
         await expect(page.getByTestId('playground-tree-row').filter({ hasText: 'ping' })).toHaveCount(1)
       }
       expect(pageErrors).toEqual([])
+      expect(externalRequests).toEqual([])
     }
     finally {
       server.closeAllConnections()
@@ -85,6 +92,16 @@ test('root fetch playground can execute a listed mock route', async ({ page }) =
       await page.getByTestId('playground-tree-row').filter({ hasText: 'ping' }).click()
       await page.getByTestId('playground-run').click()
       await expect(page.getByTestId('playground-response')).toContainText('root-playground')
+      await page.getByRole('tab', { name: /Timeline|请求时间线/ }).click()
+      await expect(page.getByTestId('request-timeline').getByRole('listitem')).toHaveCount(1)
+      await page.route('**/ping', route => route.fulfill({ json: { ok: 'changed' } }))
+      await page.getByTestId('playground-run').click()
+      await expect(page.getByTestId('request-timeline').getByRole('listitem')).toHaveCount(2)
+      await expect(page.getByTestId('response-diff')).toContainText('/ok')
+      await expect(page.getByTestId('response-diff')).toContainText('root-playground')
+      await expect(page.getByTestId('response-diff')).toContainText('changed')
+      await page.getByRole('button', { name: /^Clear$|^清空$/ }).click()
+      await expect(page.getByTestId('request-timeline').getByRole('listitem')).toHaveCount(0)
     }
     finally {
       try {

@@ -1,3 +1,4 @@
+import type { HttpHandler, HttpScenario, UnhandledRequestPolicy } from '@mokup/runtime/http'
 import type { MockEntryOptions, PlaygroundOptionsInput } from '@mokup/shared'
 import type { DiagnosticErrorMode } from './dev/types'
 
@@ -48,6 +49,11 @@ export interface FetchServerOptions extends MockEntryOptions {
  * }
  */
 export interface FetchServerOptionsConfig {
+  /** Standard handlers take priority over file-derived initial rules. */
+  handlers?: readonly HttpHandler[]
+  onUnhandled?: UnhandledRequestPolicy
+  /** Named scenario catalog shared with the standalone server and Playground. */
+  scenario?: HttpScenario
   /**
    * Entry or entries to scan.
    *

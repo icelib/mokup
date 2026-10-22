@@ -1,3 +1,6 @@
+/** Framework route adapters. */
+export { createAstroEndpoint } from './astro'
+export type { AstroEndpointContextLike, AstroEndpointHandler, AstroEndpointHandlers } from './astro'
 /**
  * Directory config helper for dev scans.
  *
@@ -29,6 +32,10 @@ export type {
  * import { createFetchHandler } from '@mokup/server'
  */
 export { createFetchHandler } from './fetch'
+export { createNextApiHandler, createNextRouteHandler } from './next'
+export type { NextApiRequestLike, NextApiResponseLike, NextRouteContext, NextRouteHandler, NextRouteHandlers } from './next'
+export { createNuxtHandler } from './nuxt'
+export type { NuxtEventHandler, NuxtEventLike } from './nuxt'
 /**
  * Core server types.
  *
@@ -36,7 +43,9 @@ export { createFetchHandler } from './fetch'
  * import type { ServerOptions } from '@mokup/server'
  */
 export type {
+  ControlledFetchHandler,
   FetchHandler,
+  RuntimeControls,
   ServerOptions,
   WorkerBundle,
   WorkerInput,
