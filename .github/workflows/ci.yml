@@ -71,7 +71,9 @@ jobs:
       - name: Lint
         # Running the workspace scripts directly avoids the intermittent
         # Turbo process-tree hang observed after all Windows lint tasks finish.
-        run: pnpm -r --if-present --workspace-concurrency=8 run lint
+        # Lint tasks are independent; optional runtime peers must not create
+        # ordering cycles with the playground's development dependencies.
+        run: pnpm -r --if-present --workspace-concurrency=8 --no-sort run lint
 
       - name: Line Budget (guard)
         run: pnpm run lint:lines:guard

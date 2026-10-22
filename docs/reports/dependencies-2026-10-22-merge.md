@@ -168,3 +168,5 @@ main 的 consumer 脚本假定发布包固定为 9 个，现改为精确核对�
 在全新临时源码目录重新冻结安装，typecheck 27 项、全仓构建 17 项、10 包增强 pack 检查及 Node 22.12 严格隔离消费者均通过，Turbo 缓存命中为 0。最终 CI 状态以 PR #35 对应最新提交的检查为准。安全复核仍只有 braces 的既有 1 条 high；该告警没有忽略或降级。两处包声明修复均附有 patch changeset，没有执行版本更新。
 
 修复后重新执行完整单测：2,047 passed、1 skipped、1 todo；覆盖率 Statements 87.00%、Lines 87.20%、Functions 88.51%、Branches 79.45%，保持原阈值。
+
+CI 的递归 lint 另使用 pnpm 自身的任务排序；它与 Turbo 不同，会将上述可选 peer/开发依赖关系当作任务环。Lint 不要求先执行依赖包的 lint，因此仅对 CI lint 增加 `--no-sort`，仍保持并发上限 8；没有启用全局忽略环，也没有改变构建顺序或检查规则。
