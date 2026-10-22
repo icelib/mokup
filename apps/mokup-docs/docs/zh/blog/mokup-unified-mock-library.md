@@ -12,7 +12,7 @@
 
 我做这个当时的目的，主要是给我团队里的同学用的，想让大家最低成本地在现有前端工程里接入服务端的能力，让大家循序渐进的成为全栈，这样才能在AI时代立足。
 
-项目地址：[GitHub](https://github.com/sonofmagic/mokup) , [官网与文档](http://mokup.icebreaker.top/)
+项目地址：[GitHub](https://github.com/icelib/mokup) , [官网与文档](http://mokup.icebreaker.top/)
 
 ## Mokup 是什么
 

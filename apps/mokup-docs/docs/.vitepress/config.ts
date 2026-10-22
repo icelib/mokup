@@ -21,7 +21,7 @@ const zhNavWithDraftPreview: DefaultTheme.NavItem[] = isProductionBuild
 
 const themeConfig: DefaultTheme.Config = {
   socialLinks: [
-    { icon: 'github', link: 'https://github.com/sonofmagic/mokup' },
+    { icon: 'github', link: 'https://github.com/icelib/mokup' },
   ],
   nav: enNav,
   sidebar: enSidebar,

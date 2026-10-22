@@ -7,7 +7,7 @@
   "homepage": "https://mokup.icebreaker.top",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/sonofmagic/mokup.git",
+    "url": "git+https://github.com/icelib/mokup.git",
     "directory": "packages/mokup"
   },
   "exports": {
