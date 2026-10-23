@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "path": "tsconfig.json",
+  "source": {
+    "package": "@icebreakers/monorepo-templates",
+    "version": "3.0.1",
+    "assetPath": "tsconfig.json",
+    "hash": "898bcdbd58b889f6cd5a9ffe99e3b1b746b356579761ce60e1fd2e6ad36192a6"
+  },
+  "upstream": {
+    "hash": "898bcdbd58b889f6cd5a9ffe99e3b1b746b356579761ce60e1fd2e6ad36192a6",
+    "content": "ewogICJleHRlbmRzIjogInJlcG9jdGwvdHNjb25maWcuanNvbiIsCiAgImZpbGVzIjogW10KfQo="
+  }
+}

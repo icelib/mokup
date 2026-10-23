@@ -112,11 +112,13 @@ Recording is limited to finite bodies (1 MiB and 5 seconds per body by default),
 
 ## Contributing
 
-Repository development requires Node.js `>=24.15.0` and the pnpm version pinned in `package.json`.
+Repository development requires Node.js `>=24.22.1 <25` and the pnpm version pinned in `package.json`.
 
 Issues and pull requests are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
-CI uses Node.js 24 LTS, and shared repository tooling uses repoctl. Published packages retain the runtime requirement listed above. Create release intents with `pnpm change` and preview them with `pnpm exec repo release plan`.
+CI uses Node.js 24.22.1, and shared repository tooling uses repoctl 6 with native Lefthook hooks. Published packages retain the runtime requirement listed above. Create release intents with `pnpm change` and preview them with `pnpm exec repo release plan`.
+
+Nightly packages use the `snapshot-nightly` npm tag. The [preview website](https://next.mokup.icebreaker.top/) follows `main`; the [official website](https://mokup.icebreaker.top/) follows completed stable releases. See [repoctl maintenance](docs/maintenance/repoctl.md) for release, deployment and hook setup.
 
 ### Development Checks
 

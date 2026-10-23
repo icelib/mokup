@@ -5,7 +5,7 @@
 - Node.js `>=22.12.0`
 - pnpm (recommended)
 
-To contribute to this repository, use Node.js 24 LTS (at least 24.15.0 within the 24.x line) and pnpm 12.11.2. The published packages support the runtime range above.
+To contribute to this repository, use Node.js 24 LTS (at least 24.22.1 within the 24.x line) and pnpm 12.11.2. The published packages support the runtime range above.
 
 ## Packages
 

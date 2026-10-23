@@ -24,6 +24,50 @@
   text-decoration: none;
 }
 
+.mokup-preview-layout {
+  --vp-layout-top-height: 80px;
+
+  padding-top: var(--vp-layout-top-height);
+}
+
+.mokup-preview-banner {
+  position: fixed;
+  inset: 0 0 auto;
+  z-index: var(--vp-z-index-layout-top);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.75rem;
+  align-items: center;
+  justify-content: center;
+  height: var(--vp-layout-top-height);
+  padding: 0.5rem 1rem;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  color: var(--vp-c-text-1);
+  text-align: center;
+  background: var(--vp-c-brand-soft);
+  border-bottom: 1px solid var(--vp-c-divider);
+}
+
+.mokup-preview-banner a {
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+
+@media (min-width: 640px) {
+  .mokup-preview-layout {
+    --vp-layout-top-height: 44px;
+  }
+}
+
+@media (max-width: 959.98px) {
+  /* stylelint-disable-next-line selector-class-pattern -- VitePress owns this navigation class. */
+  .mokup-preview-layout .VPNav {
+    top: 0;
+  }
+}
+
 .mokup-brand {
   display: inline-flex;
   gap: 0.6rem;

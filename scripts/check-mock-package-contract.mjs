@@ -13,7 +13,7 @@ const serverFetch = path.join(rootDir, 'packages/server/dist/fetch.mjs')
 async function run(command, args, cwd, env = {}) {
   return await execa(command, args, {
     cwd,
-    env: { ...process.env, ...env, HUSKY: '0' },
+    env: { ...process.env, ...env, LEFTHOOK: '0' },
     maxBuffer: 8 * 1024 * 1024,
   })
 }

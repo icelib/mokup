@@ -1,0 +1,265 @@
+diff --git a/dist/commands-D1KtdxnV.mjs b/dist/commands-D1KtdxnV.mjs
+index 79b651dba83031ed6f414bbc9d7afe77d49ab0a1..5c83854f9364b628dca63ea20d43bcabae898dd3 100644
+--- a/dist/commands-D1KtdxnV.mjs
++++ b/dist/commands-D1KtdxnV.mjs
+@@ -5052,7 +5052,10 @@ function collectWorkspaceProtocolViolations(options) {
+ 		for (const section of DEPENDENCY_SECTIONS) {
+ 			const dependencies = entry.packageJson[section];
+ 			if (!dependencies) continue;
+-			for (const [dependencyName, spec] of Object.entries(dependencies)) if (options.workspacePackageNames.has(dependencyName) && spec !== EXPECTED_WORKSPACE_SPEC) violations.push(`${displayPath(options.workspaceDir, entry.file)} -> ${section}.${dependencyName}=${spec}`);
++			for (const [dependencyName, spec] of Object.entries(dependencies)) {
++				const allowed = spec === EXPECTED_WORKSPACE_SPEC || section === "peerDependencies" && ["workspace:^", "workspace:~"].includes(spec);
++				if (options.workspacePackageNames.has(dependencyName) && !allowed) violations.push(`${displayPath(options.workspaceDir, entry.file)} -> ${section}.${dependencyName}=${spec}`);
++			}
+ 		}
+ 	}
+ 	return violations;
+@@ -5071,7 +5074,7 @@ async function assertWorkspaceDependencyProtocols(cwd) {
+ 		packages: manifests,
+ 		workspacePackageNames: new Set(manifests.map(({ packageJson }) => packageJson.name).filter((name) => typeof name === "string"))
+ 	});
+-	if (violations.length > 0) throw new ReleaseCommandError([`Expected publishable workspace dependencies to use ${EXPECTED_WORKSPACE_SPEC}:`, ...violations.map((violation) => `- ${violation}`)].join("\n"));
++	if (violations.length > 0) throw new ReleaseCommandError([`Expected publishable workspace dependencies to use ${EXPECTED_WORKSPACE_SPEC} (peerDependencies also allow workspace:^ and workspace:~):`, ...violations.map((violation) => `- ${violation}`)].join("\n"));
+ }
+ //#endregion
+ //#region src/commands/release/hooks.ts
+@@ -10830,6 +10833,78 @@ async function getMaintenanceWorkflow(cwd) {
+ 	].map((source) => source.replace("export function", "function")).join("\n")}\n${validator.replace(/^import .*\n/gmu, "").replace("export async function", "async function")}`.trimEnd();
+ 	return template.replace("            __VALIDATOR__", () => script.split("\n").map((line) => `            ${line}`).join("\n")).replace("__TARGETS__", () => JSON.stringify(getAssetTargets())).replace("__PRESET_ASSETS__", () => JSON.stringify(policy)).replace("__MIGRATION_POLICY__", () => JSON.stringify(getMaintenanceMigrationPolicy()));
+ }
++//#endregion
++//#region src/commands/package-check/consumer/contracts.ts
++function consumerOptionalPeers(roots, manifests) {
++	const known = new Map(manifests.map(manifest => [manifest.name, manifest]));
++	const visited = new Set();
++	const peers = new Map();
++	const visit = (manifest) => {
++		if (visited.has(manifest.name)) return;
++		visited.add(manifest.name);
++		for (const reference of dependencyReferences(manifest, ".")) {
++			const local = known.get(reference.name);
++			if (local) {
++				visit(local);
++				continue;
++			}
++			if (reference.field !== "peerDependencies") continue;
++			if (reference.protocol !== "registry" || !validRange(reference.range)) throw new Error(`Consumer optional peer ${manifest.name}>${reference.alias} must declare a registry version range.`);
++			const peer = peers.get(reference.alias) ?? { name: reference.name, ranges: [], optional: false };
++			if (peer.name !== reference.name) throw new Error(`Consumer optional peer alias ${reference.alias} has conflicting package names.`);
++			peer.ranges.push(reference.range);
++			peer.optional ||= manifest.peerDependenciesMeta?.[reference.alias]?.optional === true;
++			peers.set(reference.alias, peer);
++		}
++	};
++	roots.forEach(visit);
++	return Object.fromEntries([...peers].filter(([, peer]) => peer.optional).sort(([left], [right]) => left.localeCompare(right)).map(([alias, peer]) => {
++		let alternatives = ["*"];
++		for (const range of peer.ranges) {
++			alternatives = alternatives.flatMap(left => validRange(range).split("||").map(right => `${left} ${right}`.trim())).filter(range => minVersion(range) !== null);
++		}
++		const range = [...new Set(alternatives)].join(" || ");
++		if (!range) throw new Error(`Consumer optional peer ${alias} has incompatible declared ranges: ${peer.ranges.join(", ")}.`);
++		return [alias, alias === peer.name ? range : `npm:${peer.name}@${range}`];
++	}));
++}
++
++function consumerRuntimeAssets(manifest) {
++	const assets = manifest.repoctl?.packageCheck?.runtimeAssets ?? [];
++	if (!Array.isArray(assets) || assets.some(value => typeof value !== "string" || value !== "." && !value.startsWith("./") || value.includes("*") || value.split("/").includes(".."))) {
++		throw new Error(`Package ${manifest.name} repoctl.packageCheck.runtimeAssets must list exact export subpaths.`);
++	}
++	return new Set(assets);
++}
++
++function consumerAssetSource(entry, specifier, installed) {
++	const resolve = entry.format === "esm"
++		? `process.getBuiltinModule("node:url").fileURLToPath(import.meta.resolve(${JSON.stringify(specifier)}))`
++		: `require.resolve(${JSON.stringify(specifier)})`;
++	return [
++		'const fs = process.getBuiltinModule("node:fs");',
++		'const path = process.getBuiltinModule("node:path");',
++		`const root = fs.realpathSync(${JSON.stringify(installed)});`,
++		`const filename = fs.realpathSync(${resolve});`,
++		`const expected = fs.realpathSync(path.resolve(root, ${JSON.stringify(entry.target)}));`,
++		'const relative = path.relative(root, filename);',
++		'if (!relative || relative === ".." || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative) || filename !== expected || !fs.statSync(filename).isFile()) throw new Error("Exported runtime asset does not resolve to its checked package file.");',
++		'fs.readFileSync(filename);',
++	].join("\n");
++}
++
++async function nightlyConsumerManifests(report) {
++	return Promise.all(report.snapshot.packages.map(async (pkg) => {
++		if (!pkg.tarball) throw new Error(`Nightly consumer has no checked tarball for ${pkg.name}.`);
++		const bytes = await readFile(pkg.tarball);
++		if (`sha512-${createHash("sha512").update(bytes).digest("base64")}` !== pkg.integrity) throw new Error(`Nightly consumer tarball integrity changed for ${pkg.name}.`);
++		const packed = createPackageFromTarballData(bytes);
++		const manifest = JSON.parse(packed.readFile(`/node_modules/${pkg.name}/package.json`));
++		if (manifest.name !== pkg.name || manifest.version !== pkg.version || !matchesSnapshotMetadata(manifest.repoctlSnapshot, report.snapshot)) throw new Error(`Nightly consumer tarball identity changed for ${pkg.name}.`);
++		return manifest;
++	}));
++}
++
+ //#endregion
+ //#region src/commands/package-check/entries.ts
+ function resolveTarget(value, conditions) {
+@@ -10861,6 +10936,7 @@ function expand(subpath, target, files) {
+ }
+ /** Only exercise declared Node entrypoints; browser/assets/type-only paths are not Node modules. */
+ function consumerEntries(manifest, files) {
++	const assets = consumerRuntimeAssets(manifest);
+ 	const exports = manifest.exports;
+ 	const mappings = exports && typeof exports === "object" && !Array.isArray(exports) && Object.keys(exports).some((key) => key.startsWith(".")) ? exports : { ".": exports !== void 0 ? exports : manifest.main ?? (files.includes("index.js") ? "./index.js" : void 0) };
+ 	const entries = [];
+@@ -10883,9 +10959,14 @@ function consumerEntries(manifest, files) {
+ 		for (const expanded of expand(subpath, target, files)) entries.push({
+ 			...expanded,
+ 			format,
+-			runtime
++			runtime,
++			asset: assets.has(expanded.subpath)
+ 		});
+ 	}
++	for (const asset of assets) {
++		const matches = entries.filter(entry => entry.subpath === asset && entry.runtime);
++		if (!matches.length || matches.some(entry => !entry.target.startsWith("./") || entry.target.split("/").includes("..") || !files.includes(entry.target.slice(2)))) throw new Error(`Runtime asset ${manifest.name}${asset.slice(1)} must name a packed JavaScript export.`);
++	}
+ 	return entries;
+ }
+ function supportsResolution(entries, subpath, kind, legacy) {
+@@ -11089,6 +11170,29 @@ function failureMessage(command) {
+ 	return `${command.executable} ${command.args.join(" ")} failed (${command.exitCode ?? "process error"}): ${command.output}`;
+ }
+ //#endregion
++//#region src/commands/package-check/consumer/typescript.ts
++async function consumerTypescriptVersion(source) {
++	for (const require of [createRequire(path$1.join(source, "package.json")), createRequire(import.meta.url)]) {
++		let filename;
++		try {
++			filename = require.resolve("typescript/package.json");
++		} catch (error) {
++			if (error?.code === "MODULE_NOT_FOUND") continue;
++			throw error;
++		}
++		const { version } = JSON.parse(await readFile(filename, "utf8"));
++		if (typeof version !== "string" || !valid(version)) throw new Error("Consumer TypeScript must have an exact installed version.");
++		return version;
++	}
++	throw new Error("Install TypeScript in the source workspace before checking typed package consumers.");
++}
++async function isolatedConsumerCompiler(directory) {
++	const tsc = await realpath(createRequire(path$1.join(directory, "package.json")).resolve("typescript/bin/tsc"));
++	const relative = path$1.relative(await realpath(directory), tsc);
++	if (!relative || relative === ".." || relative.startsWith(".." + path$1.sep) || path$1.isAbsolute(relative)) throw new Error("Consumer TypeScript resolved outside its isolated directory.");
++	return tsc;
++}
++//#endregion
+ //#region src/commands/package-check/consumer.ts
+ async function consumeTarball(pkg, packages, results, entries, directory, timeout, options = {}) {
+ 	const { result } = pkg;
+@@ -11097,13 +11201,14 @@ async function consumeTarball(pkg, packages, results, entries, directory, timeou
+ 	if (result.diagnostics.some((item) => item.severity === "error")) return;
+ 	const checkTypes = entries.length > 0 && result.files.some((file) => /\.d\.[cm]?ts$/u.test(file));
+ 	const nodeTypes = checkTypes ? JSON.parse(await readFile(createRequire(import.meta.url).resolve("@types/node/package.json"), "utf8")) : void 0;
++	const typescript = checkTypes ? await consumerTypescriptVersion(pkg.result.directory) : void 0;
+ 	await mkdir(directory, { recursive: true });
+ 	await writeFile(path$1.join(directory, "package.json"), JSON.stringify({
+ 		name: "repoctl-package-consumer",
+ 		private: true,
+ 		...packageManager ? { packageManager } : {},
+-		dependencies: { [String(pkg.manifest.name)]: `file:${result.tarball}` },
+-		...nodeTypes ? { devDependencies: { "@types/node": nodeTypes.version } } : {}
++		dependencies: { ...consumerOptionalPeers([pkg.manifest], packages.map(item => item.manifest)), [String(pkg.manifest.name)]: `file:${result.tarball}` },
++		...nodeTypes ? { devDependencies: { "@types/node": nodeTypes.version, typescript } } : {}
+ 	}, null, 2));
+ 	await writeFile(path$1.join(directory, "pnpm-workspace.yaml"), stringify({
+ 		packages: [],
+@@ -11133,11 +11238,11 @@ async function consumeTarball(pkg, packages, results, entries, directory, timeou
+ 	const installed = await realpath(path$1.join(directory, "node_modules", String(pkg.manifest.name)));
+ 	const relative = path$1.relative(await realpath(directory), installed);
+ 	if (relative.startsWith("..") || path$1.isAbsolute(relative)) throw new Error("Consumer resolved a package outside its isolated directory.");
+-	const tsc = createRequire(import.meta.resolve("@arethetypeswrong/core/package.json")).resolve("typescript/bin/tsc");
++	const tsc = checkTypes ? await isolatedConsumerCompiler(directory) : "";
+ 	for (const [index, entry] of entries.entries()) {
+ 		const specifier = `${pkg.manifest.name}${entry.subpath === "." ? "" : entry.subpath.slice(1)}`;
+ 		if (entry.runtime) {
+-			const source = entry.format === "esm" ? `await import(${JSON.stringify(specifier)})` : `require(${JSON.stringify(specifier)})`;
++			const source = entry.asset ? consumerAssetSource(entry, specifier, installed) : entry.format === "esm" ? `await import(${JSON.stringify(specifier)})` : `require(${JSON.stringify(specifier)})`;
+ 			const command = await execute(process.execPath, [
+ 				"--input-type",
+ 				entry.format === "esm" ? "module" : "commonjs",
+@@ -11147,12 +11252,17 @@ async function consumeTarball(pkg, packages, results, entries, directory, timeou
+ 			result.commands.push(command);
+ 			if (command.exitCode !== 0) result.diagnostics.push({
+ 				source: "node",
+-				code: "RUNTIME_IMPORT",
++				code: entry.asset ? "RUNTIME_ASSET" : "RUNTIME_IMPORT",
+ 				severity: "error",
+ 				entry: entry.subpath,
+ 				file: entry.target,
+ 				message: failureMessage(command)
+ 			});
++			if (entry.asset && command.exitCode === 0) {
++				const syntax = await execute(process.execPath, ["--check", path$1.resolve(installed, entry.target)], directory, timeout, options);
++				result.commands.push(syntax);
++				if (syntax.exitCode !== 0) result.diagnostics.push({ source: "node", code: "RUNTIME_ASSET_SYNTAX", severity: "error", entry: entry.subpath, file: entry.target, message: failureMessage(syntax) });
++			}
+ 		}
+ 		if (checkTypes) {
+ 			const file = `consume-${index}.${entry.format === "esm" ? "mts" : "cts"}`;
+@@ -12381,17 +12491,18 @@ async function releaseSnapshot(options) {
+ async function checkInstalledEntries(manifest, files, installed, directory, run, packageIndex) {
+ 	const entries = consumerEntries(manifest, files);
+ 	const checkTypes = files.some((file) => /\.d\.[cm]?ts$/u.test(file));
+-	const tsc = createRequire(import.meta.resolve("@arethetypeswrong/core/package.json")).resolve("typescript/bin/tsc");
++	const tsc = checkTypes ? await isolatedConsumerCompiler(directory) : "";
+ 	for (const [index, entry] of entries.entries()) {
+ 		const specifier = `${manifest.name}${entry.subpath === "." ? "" : entry.subpath.slice(1)}`;
+ 		if (entry.runtime) {
+-			const source = entry.format === "esm" ? `await import(${JSON.stringify(specifier)})` : `require(${JSON.stringify(specifier)})`;
++			const source = entry.asset ? consumerAssetSource(entry, specifier, installed) : entry.format === "esm" ? `await import(${JSON.stringify(specifier)})` : `require(${JSON.stringify(specifier)})`;
+ 			await run(process.execPath, [
+ 				"--input-type",
+ 				entry.format === "esm" ? "module" : "commonjs",
+ 				"--eval",
+ 				source
+ 			]);
++			if (entry.asset) await run(process.execPath, ["--check", path$1.resolve(installed, entry.target)]);
+ 		}
+ 		if (checkTypes) {
+ 			const file = `consume-${packageIndex}-${index}.${entry.format === "esm" ? "mts" : "cts"}`;
+@@ -12614,19 +12725,25 @@ async function verifyNightlyConsumer(report, options) {
+ 	let failure;
+ 	try {
+ 		const source = JSON.parse(await readFile(path$1.join(options.cwd, "package.json"), "utf8"));
++		const manifests = await nightlyConsumerManifests(report);
+ 		const pin = /^pnpm@(\d+\.\d+\.\d+)(?:\+sha\d+\.[a-f0-9]+)?$/u.exec(source.packageManager ?? "");
+ 		if (!pin) throw new Error("Nightly consumer requires an exact pnpm packageManager pin.");
+ 		await mkdir(report.outputDirectory, { recursive: true });
+ 		directory = await realpath(await mkdtemp(path$1.join(report.outputDirectory, "consumer-")));
+ 		const nodeTypes = JSON.parse(await readFile(createRequire(import.meta.url).resolve("@types/node/package.json"), "utf8"));
++		const checkTypes = report.snapshot.checks?.some((check) => check.files.some((file) => /\.d\.[cm]?ts$/u.test(file)));
++		const typescript = checkTypes ? await consumerTypescriptVersion(options.cwd) : void 0;
+ 		await Promise.all([
+ 			writeFile(path$1.join(directory, "package.json"), `${JSON.stringify({
+ 				name: "repoctl-nightly-consumer",
+ 				private: true,
+ 				type: "module",
+ 				packageManager: source.packageManager,
+-				dependencies: Object.fromEntries(report.packages.map((pkg) => [pkg.name, report.provider === "npm" ? "snapshot-nightly" : pkg.locator])),
+-				...!report.packages.some((pkg) => pkg.name === "@types/node") ? { devDependencies: { "@types/node": nodeTypes.version } } : {}
++				dependencies: { ...consumerOptionalPeers(manifests, manifests), ...Object.fromEntries(report.packages.map((pkg) => [pkg.name, report.provider === "npm" ? "snapshot-nightly" : pkg.locator])) },
++				devDependencies: {
++					...!report.packages.some((pkg) => pkg.name === "@types/node") ? { "@types/node": nodeTypes.version } : {},
++					...typescript && !report.packages.some((pkg) => pkg.name === "typescript") ? { typescript } : {}
++				}
+ 			}, null, 2)}\n`),
+ 			writeFile(path$1.join(directory, "pnpm-workspace.yaml"), "packages: []\n"),
+ 			writeFile(path$1.join(directory, "user.npmrc"), ""),
+@@ -13144,6 +13261,7 @@ async function createReleasePlan(options) {
+ 		report = await createNativeReleasePlan(options);
+ 		report.branchRule = selected;
+ 		if (report.status !== "blocked") {
++			await assertWorkspaceDependencyProtocols(report.cwd);
+ 			await assertProjectedLine(selected, report.packages, {
+ 				...options,
+ 				cwd: report.cwd

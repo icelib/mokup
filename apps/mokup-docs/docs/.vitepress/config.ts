@@ -1,25 +1,32 @@
 import type { DefaultTheme, HeadConfig, MarkdownRenderer, UserConfig } from 'vitepress'
+import type { DocsThemeConfig } from './deployment'
 import process from 'node:process'
 import tailwindcss from '@tailwindcss/vite'
 import mokup from 'mokup/vite'
 import { defineConfig } from 'vitepress'
 import { groupIconMdPlugin, groupIconVitePlugin } from 'vitepress-plugin-group-icons'
 import llmstxt from 'vitepress-plugin-llms'
+import { writeDeploymentFiles } from '../../../../scripts/docs-deployment/output.mjs'
 import { enNav, zhNav } from './config/nav'
 import { enSidebar, zhSidebar } from './config/sidebar'
+import { getDocsDeployment } from './deployment'
+import { isolateWorkerChunks } from './plugins/worker-chunks'
 
 const siteTitle = 'Mokup'
 const siteTagline = 'File-based HTTP framework for Vite, Node, and Workers'
 const siteDescription
   = 'Build file-driven HTTP routes with a unified runtime, serving mock or real APIs across dev and deployment.'
-const siteUrl = 'https://mokup.icebreaker.top'
+const deployment = getDocsDeployment(process.env['REPO_DOCS_CHANNEL'])
+const siteUrl = deployment.origin
 const ogImage = `${siteUrl}/brand/mokup-logo.svg`
 const isProductionBuild = process.env['NODE_ENV'] === 'production' || process.argv.includes('build')
 const zhNavWithDraftPreview: DefaultTheme.NavItem[] = isProductionBuild
   ? zhNav
   : [...zhNav, { text: '草稿预览', link: '/zh/blog/drafts' }]
 
-const themeConfig: DefaultTheme.Config = {
+const themeConfig: DocsThemeConfig = {
+  docsPreview: deployment.preview,
+  stableUrl: deployment.stableUrl,
   socialLinks: [
     { icon: 'github', link: 'https://github.com/icelib/mokup' },
   ],
@@ -29,6 +36,7 @@ const themeConfig: DefaultTheme.Config = {
 }
 
 const vitePlugins = [
+  isolateWorkerChunks(),
   tailwindcss(),
   mokup({
     entries: {
@@ -47,6 +55,7 @@ const vitePlugins = [
     generateLLMsFullTxt: true,
     generateLLMFriendlyDocsForEachPage: true,
     excludeBlog: false,
+    ignoreFiles: ['**/*.zh-draft.md', 'zh/blog/drafts.md'],
     customTemplateVariables: {
       title: `${siteTitle} Documentation`,
       description: siteDescription,
@@ -88,7 +97,6 @@ const head: HeadConfig[] = [
     { property: 'og:title', content: `${siteTitle} — ${siteTagline}` },
   ],
   ['meta', { property: 'og:description', content: siteDescription }],
-  ['meta', { property: 'og:url', content: siteUrl }],
   ['meta', { property: 'og:image', content: ogImage }],
   ['meta', { property: 'og:locale', content: 'en_US' }],
   ['meta', { property: 'og:locale:alternate', content: 'zh_CN' }],
@@ -101,22 +109,33 @@ const head: HeadConfig[] = [
   ['meta', { name: 'twitter:image', content: ogImage }],
 ]
 
-const docsConfig: UserConfig<DefaultTheme.Config> = {
+const docsConfig: UserConfig<DocsThemeConfig> = {
   title: siteTitle,
   description: siteDescription,
   lang: 'en-US',
   cleanUrls: true,
   lastUpdated: true,
   head,
+  transformHead({ pageData }) {
+    const pathname = pageData.relativePath.replace(/(?:^|\/)index\.md$/, '/').replace(/\.md$/, '')
+    const url = new URL(pathname, `${siteUrl}/`).href
+    const pageHead: HeadConfig[] = [
+      ['link', { rel: 'canonical', href: url }],
+      ['meta', { property: 'og:url', content: url }],
+    ]
+    if (deployment.preview) {
+      pageHead.push(['meta', { name: 'robots', content: 'noindex, nofollow' }])
+    }
+    return pageHead
+  },
+  buildEnd: config => writeDeploymentFiles(config.outDir, deployment),
   vite: {
     build: {
       chunkSizeWarningLimit: 800,
     },
     plugins: vitePlugins,
   },
-  sitemap: {
-    hostname: siteUrl,
-  },
+  ...(deployment.preview ? {} : { sitemap: { hostname: siteUrl } }),
   locales: {
     root: { label: 'English', lang: 'en-US' },
     zh: {
@@ -140,11 +159,11 @@ const docsConfig: UserConfig<DefaultTheme.Config> = {
   },
 }
 
-const finalConfig: UserConfig<DefaultTheme.Config> = {
+const finalConfig: UserConfig<DocsThemeConfig> = {
   ...docsConfig,
 }
 if (isProductionBuild) {
   finalConfig.srcExclude = ['**/*.zh-draft.md', 'zh/blog/drafts.md']
 }
 
-export default defineConfig(finalConfig)
+export default defineConfig<DocsThemeConfig>(finalConfig)

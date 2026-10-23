@@ -2,13 +2,13 @@
 
 ## Baseline
 
-- Use Node.js `>=24.15.0 <25` for development and builds; CI uses Node.js 24 LTS
+- Use Node.js `>=24.22.1 <25` for development and builds; CI uses Node.js 24.22.1
 - Use the pnpm version pinned in the root `package.json`
 - Preserve the published packages' runtime requirement: `>=22.12.0`
 - Keep published packages ESM-only
 - Keep published library packages on `tsdown` + `rolldown`
 
-The development Node.js minimum follows the shared tooling and jsdom requirements. Shared repository tooling is configured through `repoctl.config.ts` and the `repoctl/tooling` wrappers. Dependency catalogs, overrides, and installation settings live in `pnpm-workspace.yaml`; `.npmrc` contains registry and authentication settings.
+The development Node.js minimum follows the shared tooling and jsdom requirements. `.node-version` and `.nvmrc` pin Node.js 24.22.1. Shared repository tooling is configured through `repoctl.config.ts` and the `repoctl/tooling` wrappers. Dependency catalogs, overrides, and installation settings live in `pnpm-workspace.yaml`; `.npmrc` contains registry and authentication settings.
 
 ## Before Opening A PR
 
@@ -26,8 +26,10 @@ The development Node.js minimum follows the shared tooling and jsdom requirement
 
 - `pnpm exec repo doctor` inspects the workspace and its tooling configuration.
 - `pnpm exec repo check --dry-run` previews the checks; `pnpm exec repo check` runs them.
+- `pnpm run lint:root` checks root configuration, `.github`, `scripts` and current operation documents; `pnpm lint` and CI run it before workspace lint. Historical reports are excluded.
 - `pnpm exec repo clean` deletes selected workspace package directories. Use it only when intentionally removing those packages and review the selection before confirming.
 - See [Dependency Security Maintenance](docs/maintenance/dependency-security.md) for security overrides, remaining advisories, and recheck commands.
+- See [repoctl Maintenance](docs/maintenance/repoctl.md) for native Git hooks, nightly packages, website channels and CI credentials.
 
 ## Release Workflow
 
@@ -38,7 +40,9 @@ Release intents remain Markdown files under `.changeset/`, created with `pnpm ch
 3. Run `pnpm run release:check` before releasing.
 4. Let the release workflow prepare and publish the release, or use `pnpm exec repo release stable publish` for an intentional manual stable release.
 
-Prereleases use a manual workflow dispatch so npm trusted publishing identifies the prepared version commit. On the matching `alpha`, `beta`, `rc`, or `next` branch, enter its lane with `pnpm exec repo release pre enter alpha` (replace `alpha` as needed), add intents with `pnpm change`, and commit the lane and intent changes. Review `pnpm exec repo release plan`, run `pnpm run release:check`, then run `pnpm version -r` locally. Commit and push the generated version, changelog, and release-ledger changes before dispatching the Release workflow on that branch with `mode=auto`. The workflow rejects pending prerelease intents because repoctl 5.7.1 changes the source commit during automatic preparation, which conflicts with the running workflow's OIDC identity. Exit the lane with `pnpm exec repo release pre exit` when returning to stable releases.
+The repoctl 6 workflow separates planning, preparation, verification, npm publishing and metadata completion. Prereleases still require a prepared version commit before workflow dispatch so npm trusted publishing identifies the artifacts actually built. On the matching `alpha`, `beta`, `rc` or `next` branch, enter its lane with `pnpm exec repo release pre enter alpha` (replace `alpha` as needed), create intents with `pnpm change`, and commit the lane and intent changes. Review `pnpm exec repo release plan`, run `pnpm run release:check`, then run `pnpm version -r` locally. Commit and push the version, changelog and release-ledger changes before dispatching Release with `mode=auto`. Automatic preparation can change the source commit after a workflow starts, which conflicts with its OIDC identity; the workflow rejects pending prerelease intents. Exit the lane with `pnpm exec repo release pre exit` when returning to stable releases.
+
+Nightly snapshots run daily at 03:17 Asia/Shanghai when `main` has changed, with manual dispatch available. They use the `snapshot-nightly` npm tag and do not consume release intents or update stable versions. Website preview and official deployments follow separate source policies described in [repoctl Maintenance](docs/maintenance/repoctl.md).
 
 Dependency maintenance should leave package versions and release intents pending for the release workflow.
 
@@ -46,13 +50,13 @@ Dependency maintenance should leave package versions and release intents pending
 
 The `repoctl-release-state` branch stores durable publishing checkpoints. Its initial commit contains only checkpoint documentation, with no source-tree parent or workflow files. Each checkpoint retains the original package source commit separately. A version commit can predate workflow fixes, so initializing this branch from that commit can require workflow permissions unavailable to `GITHUB_TOKEN`.
 
-The version-scoped pnpm patch under `patches/` fixes initialization and preserves the original branch-creation error when no concurrent publisher created the branch. `pnpm run test:release-tools` exercises the installed repoctl client with a simulated GitHub API, including concurrent creation and checkpoint conflicts. Keep these tests when upgrading repoctl; remove the patch once the upstream implementation passes them.
+repoctl 6.0.1 includes the independent state-branch initialization fix. The current version-scoped pnpm patch preserves the repository's workspace peer-range policy and early release-plan validation; it no longer patches state-branch initialization. `pnpm run test:release-tools` exercises the installed repoctl client with a simulated GitHub API, including concurrent creation and checkpoint conflicts, and tests the workspace dependency contract. Keep these tests when upgrading repoctl.
 
-New releases explicitly use the workflow's checked-out commit as `REPO_RELEASE_SOURCE_SHA`, keeping checkpoint targets, npm `gitHead`, tags, and provenance aligned even when workflow fixes follow the version commit.
+The release plan carries the prepared source identity between jobs. Verification and npm publishing check out that source; successful metadata completion writes a durable release record. The official website requires a complete stable release record rather than inferring release success from a tag or package version.
 
-After a failed release, inspect the preserved `npm-publish-progress` artifact, the state branch, and npm before retrying. If no durable checkpoint or published version exists, dispatch Release with `mode=publish` on the corrected `main` without `source-sha`; the unchanged versions are built and published from that run's commit. Preserve existing versions and intents. If publication already began, preserve its checkpoint and source identity instead of starting a fresh release. Use `repo release plan` for a read-only preview.
+After a failed release, inspect the preserved plan/progress artifacts, the state branch, and npm before retrying. Preserve existing versions and intents. If publication already began, preserve its checkpoint and source identity instead of starting a fresh release. Use `repo release plan` for a read-only preview and the workflow's recovery mode for the failed stage.
 
-The OIDC workflow rejects a `source-sha` different from its run commit: npm verifies the provenance source against the signed workflow identity. Resume a checkpoint from its original run; use `mode=reconcile` without a source override when only GitHub metadata is missing after npm publication. Do not override `GITHUB_SHA` or move release tags to repair a failed run.
+The OIDC workflow rejects a `source-sha` different from its run commit. Resume npm publication from the original prepared source; use reconciliation when only GitHub metadata is missing after npm publication. Reconciliation alone does not finalize the checkpoint or create a release completion record. Resume publish/finalize on the original source to complete that lifecycle before the official website can advance; retry a website-only failure with its existing completion record ID. Do not override `GITHUB_SHA` or move release tags to repair a failed run.
 
 ## Line Budget Guard
 
@@ -73,7 +77,7 @@ The guard blocks:
 - Reintroducing `@mokup/shared/esbuild`
 - Direct `esbuild` imports in repository code or config
 - Reintroducing `tsup`, `unbuild`, or `build.config.*` in active code/config
-- The root workspace or demo apps drifting away from `engines.node: ">=24.15.0 <25"`
+- The root workspace or demo apps drifting away from `engines.node: ">=24.22.1 <25"`
 - Published library packages drifting away from:
   - `type: "module"`
   - `engines.node: ">=22.12.0"`

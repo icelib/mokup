@@ -10,6 +10,9 @@ on:
 permissions:
   contents: read
 
+env:
+  LEFTHOOK: 0
+
 concurrency:
   # Release PRs can emit both opened and synchronize events for the same bot
   # commit. Keep one authoritative run per PR and avoid competing Windows
@@ -42,7 +45,7 @@ jobs:
       - name: Setup Node.js environment
         uses: actions/setup-node@v7
         with:
-          node-version: 24
+          node-version: 24.22.1
           cache: pnpm
           cache-dependency-path: pnpm-lock.yaml
 
@@ -73,7 +76,9 @@ jobs:
         # Turbo process-tree hang observed after all Windows lint tasks finish.
         # Lint tasks are independent; optional runtime peers must not create
         # ordering cycles with the playground's development dependencies.
-        run: pnpm -r --if-present --workspace-concurrency=8 --no-sort run lint
+        run: |
+          pnpm run lint:root
+          pnpm -r --if-present --workspace-concurrency=8 --no-sort run lint
 
       - name: Line Budget (guard)
         run: pnpm run lint:lines:guard
@@ -114,9 +119,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        node-version: [22.12.0, 24]
+        node-version: [22.12.0, 24.22.1]
     env:
-      HUSKY: 0
+      LEFTHOOK: 0
     steps:
       - name: Check out code
         uses: actions/checkout@v7
@@ -124,7 +129,7 @@ jobs:
       - name: Setup build Node.js
         uses: actions/setup-node@v7
         with:
-          node-version: 24
+          node-version: 24.22.1
 
       - uses: pnpm/action-setup@v6
 
@@ -155,7 +160,7 @@ jobs:
     timeout-minutes: 15
     runs-on: ubuntu-latest
     env:
-      HUSKY: 0
+      LEFTHOOK: 0
     steps:
       - name: Check out code
         uses: actions/checkout@v7
@@ -165,7 +170,7 @@ jobs:
       - name: Setup Node.js environment
         uses: actions/setup-node@v7
         with:
-          node-version: 24
+          node-version: 24.22.1
           cache: pnpm
 
       - name: Install dependencies
@@ -200,7 +205,7 @@ jobs:
       - name: Setup Node.js environment
         uses: actions/setup-node@v7
         with:
-          node-version: 24
+          node-version: 24.22.1
           cache: pnpm
           cache-dependency-path: pnpm-lock.yaml
 
@@ -227,6 +232,11 @@ jobs:
 
       - name: Browser network conformance
         run: pnpm run test:conformance
+
+      - name: Built documentation and Service Worker smoke
+        run: |
+          pnpm run docs:build
+          pnpm run docs:test:browser
 
       - name: D1 Authentication Tests
         run: pnpm run test:e2e:d1

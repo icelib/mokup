@@ -6,7 +6,7 @@ This pnpm + Turbo monorepo keeps runnable demos and docs under `apps/` (for exam
 
 ## Build, Test, and Development Commands
 
-- `pnpm install` — set up workspaces with the pnpm version pinned in `package.json` and Node.js `>=24.15.0 <25`; CI uses Node.js 24 LTS.
+- `pnpm install` — set up workspaces with the pnpm version pinned in `package.json` and Node.js `>=24.22.1 <25`; CI uses Node.js 24.22.1.
 - `pnpm dev` — run `turbo run dev --parallel` for all apps that expose a `dev` script.
 - `pnpm build` — execute `turbo run build` to build every workspace with caching.
 - `pnpm test` / `pnpm test:dev` — run Vitest suites once or in watch mode across packages.
@@ -16,11 +16,11 @@ This pnpm + Turbo monorepo keeps runnable demos and docs under `apps/` (for exam
 - `pnpm exec repo doctor` / `pnpm exec repo check` — inspect workspace health and run the repoctl checks.
 - `pnpm exec repo clean` — intentionally delete selected workspace package directories after reviewing the selection.
 
-Development and builds require Node.js `>=24.15.0 <25`; CI uses Node.js 24 LTS. Published packages require Node.js `>=22.12.0`; keep these two requirements separate.
+Development and builds require Node.js `>=24.22.1 <25`; CI uses Node.js 24.22.1. Published packages require Node.js `>=22.12.0`; keep these two requirements separate.
 
 ## Coding Style & Naming Conventions
 
-Follow the root `.editorconfig`: two-space indentation, LF line endings, UTF-8. Prefer TypeScript (`.ts`/`.tsx`) and Vue SFCs; name files with kebab-case (`user-table.vue`) and exported symbols with PascalCase for components or camelCase for utilities. Shared ESLint, Stylelint, commitlint, and lint-staged configuration comes from `repoctl/tooling` and `repoctl.config.ts`; run `pnpm lint` before committing.
+Follow the root `.editorconfig`: two-space indentation, LF line endings, UTF-8. Prefer TypeScript (`.ts`/`.tsx`) and Vue SFCs; name files with kebab-case (`user-table.vue`) and exported symbols with PascalCase for components or camelCase for utilities. Shared ESLint, Stylelint and commitlint configuration comes from `repoctl/tooling`; native Git hooks live in `lefthook.yml`. Pre-commit runs ESLint, Stylelint and staged workspace typechecks sequentially; pre-push runs full lint and typecheck. Run `pnpm lint` before committing.
 AI-generated code must comply with this project's ESLint and Stylelint rules, and any generated TypeScript must be free of type errors.
 
 ## Testing Guidelines
@@ -30,3 +30,5 @@ Vitest powers unit tests located in workspace `test/*.test.ts` (for example `pac
 ## Commit & Pull Request Guidelines
 
 Commits must conform to Conventional Commit syntax; recent history uses prefixes like `feat`, `fix`, and `chore`. Example: `feat(server): add auth router`. Validate the message with `pnpm commitlint --edit`. Before opening a PR, make sure `pnpm lint` and `pnpm test` succeed, link related issues, and provide screenshots or logs for user-facing changes. Touching publishable packages requires a release intent created with `pnpm change` under `.changeset/`. Preview the release with `pnpm exec repo release plan`; versioning uses pnpm 12, and publishing uses `pnpm exec repo release stable publish` after the release checks pass. Dependency upgrades alone must not change package versions or publish packages.
+
+Nightly snapshots use npm's `snapshot-nightly` tag and leave stable versions and release intents unchanged. The website preview follows `main` at `next.mokup.icebreaker.top`; the official website uses the source commit from a complete stable release record. Read `docs/maintenance/repoctl.md` before changing hooks or release/deployment automation. Use `LEFTHOOK=0` for isolated consumer fixtures and CI; do not disable hooks globally.

@@ -17,7 +17,7 @@ All published packages now require:
 
 Node.js 20 and earlier are no longer supported.
 
-Repository development and builds require Node.js `>=24.15.0` and the pnpm version pinned in `package.json`. CI uses Node.js 24 LTS. This development requirement is separate from the published packages' runtime range above.
+Repository development and builds require Node.js `>=24.22.1 <25` and the pnpm version pinned in `package.json`. CI uses Node.js 24.22.1. This development requirement is separate from the published packages' runtime range above.
 
 ## 2. Packages are now ESM-only
 

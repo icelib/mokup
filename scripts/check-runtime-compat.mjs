@@ -29,7 +29,7 @@ async function readJson(filename) {
 async function run(command, args, cwd) {
   const { stdout, stderr } = await execFileAsync(command, args, {
     cwd,
-    env: { ...process.env, HUSKY: '0' },
+    env: { ...process.env, LEFTHOOK: '0' },
     timeout: 180_000,
     maxBuffer: 8 * 1024 * 1024,
   })

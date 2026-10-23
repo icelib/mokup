@@ -16,7 +16,7 @@ async function run(command, args, cwd, timeout) {
   try {
     const { stdout, stderr } = await execFileAsync(command, args, {
       cwd,
-      env: { ...process.env, HUSKY: '0', npm_config_ignore_scripts: 'true' },
+      env: { ...process.env, LEFTHOOK: '0', npm_config_ignore_scripts: 'true' },
       timeout,
       maxBuffer: 8 * 1024 * 1024,
     })

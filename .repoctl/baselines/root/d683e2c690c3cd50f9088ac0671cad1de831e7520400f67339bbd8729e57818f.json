@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "path": "commitlint.config.ts",
+  "source": {
+    "package": "@icebreakers/monorepo-templates",
+    "version": "3.0.1",
+    "assetPath": "commitlint.config.ts",
+    "hash": "1a713da048edceb4c1b16fb71b1c75f1c2758dee1541fab6556301ee2b2c821b"
+  },
+  "upstream": {
+    "hash": "1a713da048edceb4c1b16fb71b1c75f1c2758dee1541fab6556301ee2b2c821b",
+    "content": "aW1wb3J0IHsgZGVmaW5lQ29tbWl0bGludENvbmZpZyB9IGZyb20gJ3JlcG9jdGwvdG9vbGluZycKCmV4cG9ydCBkZWZhdWx0IGF3YWl0IGRlZmluZUNvbW1pdGxpbnRDb25maWcoKQo="
+  }
+}

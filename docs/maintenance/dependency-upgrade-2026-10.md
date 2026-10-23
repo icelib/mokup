@@ -1,5 +1,7 @@
 # 2026-10-15 依赖升级记录
 
+> 后续 repoctl 6 迁移已将开发环境升级至 Node.js 24.22.1，改用原生 Lefthook，并接入 nightly 与网站频道。当前流程见 [repoctl maintenance](./repoctl.md)；本文保留此前升级的版本和验证记录。
+
 本次升级覆盖全部 19 个依赖清单、共享 catalog、overrides 和锁文件中的传递依赖，并整合 main 上已有的 repoctl 工程化与功能修复。已发布包的公开导出、Vite 与 Webpack peer 支持范围保持一致。
 
 ## 环境与兼容性
