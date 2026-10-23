@@ -1,7 +1,7 @@
 {
   "name": "mokup-d1-demo",
   "type": "module",
-  "version": "0.0.16",
+  "version": "0.0.17",
   "private": true,
   "homepage": "https://mokup.icebreaker.top",
   "engines": {

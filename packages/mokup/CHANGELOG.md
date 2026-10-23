@@ -1,5 +1,11 @@
 # mokup
 
+## 4.0.1
+
+### Patch Changes
+
+- Declare the browser Service Worker export as a runtime asset for isolated package verification.
+
 ## 4.0.0
 
 ### Major Changes

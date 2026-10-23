@@ -1,5 +1,12 @@
 # mokup-middleware-demo
 
+## 0.0.23
+
+### Patch Changes
+
+- Updated dependencies:
+  - mokup@4.0.1
+
 ## 0.0.22
 
 ### Patch Changes
