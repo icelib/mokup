@@ -20,12 +20,12 @@ This is the `mokup` pnpm + Turbo monorepo. **Deployable apps and demos** live un
 
 ### Build System
 
-- **Package Manager**: pnpm 12.8.1, pinned in root `package.json`
+- **Package Manager**: pnpm 12.11.2, pinned in root `package.json`
 - **Task Orchestration**: Turbo with caching and parallel execution
 - **Library Bundler**: tsdown powered by Rolldown
 - **Shared Tooling**: repoctl, configured in `repoctl.config.ts` through `repoctl/tooling` wrappers
-- **Development Node Version**: Node.js 24 LTS, at least 24.15.0 within the 24.x line
-- **Published Package Runtime**: `^20.19.0 || >=22.12.0`
+- **Development Node Version**: `>=24.22.1 <25`; `.node-version`, `.nvmrc` and CI pin Node.js 24.22.1
+- **Published Package Runtime**: `>=22.12.0`
 
 ## Development Commands
 
@@ -36,12 +36,12 @@ This is the `mokup` pnpm + Turbo monorepo. **Deployable apps and demos** live un
 | `pnpm install`   | Install all workspace dependencies                |
 | `pnpm dev`       | Run all apps in parallel (Turbo `dev --parallel`) |
 | `pnpm build`     | Build all workspaces with Turbo caching           |
-| `pnpm test`      | Run Vitest tests once                             |
+| `pnpm test`      | Run Vitest, docs, workflow and Git hook tests     |
 | `pnpm test:dev`  | Run Vitest in watch mode                          |
-| `pnpm lint`      | Run ESLint and Stylelint across all workspaces    |
+| `pnpm lint`      | Check root tooling, then lint all workspaces      |
 | `pnpm typecheck` | Run TypeScript type checking                      |
 | `pnpm format`    | Auto-fix code with ESLint                         |
-| `pnpm validate`  | Run typecheck + lint + test (full validation)     |
+| `pnpm validate`  | Run migration guards, typecheck, lint and tests   |
 
 ### Release & Publishing
 
@@ -65,9 +65,13 @@ Use `repo clean` only when intentionally removing workspace packages.
 
 ### Git & Committing
 
-| Command                  | Description                            |
-| ------------------------ | -------------------------------------- |
-| `pnpm commitlint --edit` | Validate commit message (runs as hook) |
+| Command                                           | Description                                   |
+| ------------------------------------------------- | --------------------------------------------- |
+| `pnpm exec lefthook install`                      | Install native Git hooks for this checkout    |
+| `pnpm exec repo verify staged-typecheck`          | Typecheck workspaces affected by staged files |
+| `pnpm exec repo verify commit-msg <message-file>` | Validate a commit message through repoctl     |
+
+Git hooks are configured in `lefthook.yml`. Use `LEFTHOOK=0` for CI and isolated consumer fixtures; do not disable hooks globally. See [repoctl maintenance](docs/maintenance/repoctl.md) when migrating an existing checkout.
 
 ## Code Organization
 
@@ -81,7 +85,7 @@ Each app manages its own public assets (e.g., `public/`, `worker/`) to keep depl
 
 ### Workspace Dependencies
 
-Workspaces use `workspace:*` protocol for internal dependencies. Root `package.json` contains shared devDependencies. Shared external versions use `catalog:` references to `pnpm-workspace.yaml`, which also owns overrides and installation settings. `.npmrc` is reserved for registry and authentication settings.
+Workspaces use `workspace:*` protocol for internal dependencies; internal peer dependencies also allow `workspace:^` and `workspace:~` to preserve their published compatibility ranges. Root `package.json` contains shared devDependencies. Shared external versions use `catalog:` references to `pnpm-workspace.yaml`, which also owns overrides and installation settings. `.npmrc` is reserved for registry and authentication settings.
 
 ## Coding Conventions
 
@@ -95,8 +99,9 @@ Workspaces use `workspace:*` protocol for internal dependencies. Root `package.j
 
 - **ESLint and Stylelint**: repoctl tooling wrappers, with repository settings in `repoctl.config.ts`
 - **Testing**: Vitest with v8 coverage (reports to `coverage/`)
-- **Commits**: Conventional Commits required (enforced by commitlint + Husky)
-- **Pre-commit Hooks**: Husky + the repoctl lint-staged configuration
+- **Commits**: Conventional Commits required, enforced by Lefthook running `repo verify commit-msg`
+- **Pre-commit Hooks**: Lefthook runs ESLint fixes, Stylelint fixes and `repo verify staged-typecheck` sequentially; fixes are staged and unstaged hunks are restored afterward
+- **Pre-push Hooks**: Lefthook runs full lint, then typecheck, stopping at the first failure
 
 ## Publishing Workflow
 
