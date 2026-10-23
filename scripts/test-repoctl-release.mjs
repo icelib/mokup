@@ -1,7 +1,11 @@
 import assert from 'node:assert/strict'
 import { Buffer } from 'node:buffer'
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { test } from 'node:test'
-import { GitHubApiError, GitHubClient } from 'repoctl'
+import { execa } from 'execa'
+import { createReleasePlan, GitHubApiError, GitHubClient } from 'repoctl'
 
 const branch = 'repoctl-release-state'
 const key = 'a'.repeat(64)
@@ -167,4 +171,133 @@ test('a stale revision cannot overwrite a different checkpoint', async () => {
 test('a failed write recovers only when the persisted checkpoint matches exactly', async () => {
   const fixture = createFixture({ branchExists: true, checkpoint: state, writeError: true })
   assert.equal(await fixture.client.writeReleaseState(key, state, 'existing-blob'), 'existing-blob')
+})
+
+const targetName = '@mokup-release-fixture/target'
+const { packageManager } = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'))
+
+async function withReleaseWorkspace(consumer, run) {
+  const cwd = await mkdtemp(join(tmpdir(), 'mokup-release-protocol-'))
+  try {
+    await writeFile(join(cwd, 'package.json'), JSON.stringify({
+      name: 'mokup-release-fixture',
+      private: true,
+      packageManager,
+    }))
+    await writeFile(join(cwd, 'pnpm-workspace.yaml'), 'packages:\n  - packages/*\n')
+    const packages = {
+      target: { name: targetName, version: '2.0.1' },
+      consumer: { name: '@mokup-release-fixture/consumer', version: '1.0.0', ...consumer },
+    }
+    for (const [directory, manifest] of Object.entries(packages)) {
+      const packageDir = join(cwd, 'packages', directory)
+      await mkdir(packageDir, { recursive: true })
+      await writeFile(join(packageDir, 'package.json'), JSON.stringify(manifest))
+    }
+    await run(cwd)
+  }
+  finally {
+    await rm(cwd, { recursive: true, force: true })
+  }
+}
+
+function planRelease(cwd) {
+  return createReleasePlan({ cwd, branch: 'main', config: {} })
+}
+
+function assertUnblockedPlan(plan) {
+  assert.deepEqual(plan.blockers, [])
+  assert.equal(plan.status, 'empty', 'an unchanged fixture should need no version writes')
+}
+
+function assertBlockedProtocol(plan, field, specifier) {
+  assert.equal(plan.status, 'blocked')
+  assert.ok(plan.blockers.some((blocker) => {
+    if (blocker.id === 'invalid-release-input') {
+      return blocker.detail.includes('packages/consumer/package.json')
+        && blocker.detail.includes(`${field}.${targetName}=${specifier}`)
+    }
+    // pnpm rejects non-workspace runtime ranges before repoctl's stricter policy.
+    return blocker.id === 'pnpm-plan-failed'
+      && blocker.detail.includes('ERR_PNPM_VERSIONING_INTERNAL_RANGE')
+      && blocker.detail.includes(field)
+      && blocker.detail.includes(targetName)
+      && blocker.detail.includes(specifier)
+  }), JSON.stringify(plan.blockers))
+}
+
+for (const [specifier, packedRange] of [
+  ['workspace:*', '2.0.1'],
+  ['workspace:^', '^2.0.1'],
+  ['workspace:~', '~2.0.1'],
+]) {
+  test(`release planning preserves the optional peer contract for ${specifier}`, async () => {
+    await withReleaseWorkspace({
+      peerDependencies: { [targetName]: specifier },
+      peerDependenciesMeta: { [targetName]: { optional: true } },
+    }, async (cwd) => {
+      assertUnblockedPlan(await planRelease(cwd))
+      const consumerDir = join(cwd, 'packages', 'consumer')
+      const manifestBefore = await readFile(join(consumerDir, 'package.json'), 'utf8')
+      const { stdout } = await execa('pnpm', [
+        'pack',
+        '--json',
+        '--pack-destination',
+        join(cwd, 'tarballs'),
+      ], { cwd: consumerDir, timeout: 30000 })
+      const { filename } = JSON.parse(stdout)
+      assert.equal(typeof filename, 'string')
+      const extracted = await execa('tar', ['-xOf', filename, 'package/package.json'], { timeout: 10000 })
+      const packed = JSON.parse(extracted.stdout)
+      assert.equal(packed.peerDependencies[targetName], packedRange)
+      assert.deepEqual(packed.peerDependenciesMeta[targetName], { optional: true })
+      assert.equal(await readFile(join(consumerDir, 'package.json'), 'utf8'), manifestBefore)
+    })
+  })
+}
+
+const ordinaryDependencyFields = ['dependencies', 'devDependencies', 'optionalDependencies']
+
+test('release planning accepts exact workspace dependencies in every ordinary dependency field', async () => {
+  await withReleaseWorkspace(Object.fromEntries(
+    ordinaryDependencyFields.map(field => [field, { [targetName]: 'workspace:*' }]),
+  ), async (cwd) => {
+    assertUnblockedPlan(await planRelease(cwd))
+  })
+})
+
+for (const field of ordinaryDependencyFields) {
+  for (const specifier of ['workspace:^', 'workspace:~', '^2.0.1']) {
+    test(`release planning rejects ${field} ${specifier} before release execution`, async () => {
+      await withReleaseWorkspace({ [field]: { [targetName]: specifier } }, async (cwd) => {
+        assertBlockedProtocol(await planRelease(cwd), field, specifier)
+      })
+    })
+  }
+}
+
+for (const specifier of ['^2.0.1', 'workspace:>=2.0.0']) {
+  test(`release planning reports unsupported internal peer range ${specifier}`, async () => {
+    await withReleaseWorkspace({ peerDependencies: { [targetName]: specifier } }, async (cwd) => {
+      assertBlockedProtocol(await planRelease(cwd), 'peerDependencies', specifier)
+    })
+  })
+}
+
+test('release planning keeps normal external dependency ranges outside workspace policy', async () => {
+  await withReleaseWorkspace({
+    dependencies: { external: '^2.0.0' },
+    peerDependencies: { vite: '^8.0.0' },
+  }, async (cwd) => {
+    assertUnblockedPlan(await planRelease(cwd))
+  })
+})
+
+test('release planning does not enforce publishing protocols on private consumers', async () => {
+  await withReleaseWorkspace({
+    private: true,
+    dependencies: { [targetName]: 'workspace:^' },
+  }, async (cwd) => {
+    assertUnblockedPlan(await planRelease(cwd))
+  })
 })
