@@ -6,12 +6,23 @@
     - escape-generated-module-specifiers
     - modern-dependency-stack
     - upgrade-repoctl-toolchain
+"@mokup/cli@3.0.0":
+  dir: packages/cli
+  intents:
+    - big-rings-tell
+    - node-22-runtime-dependencies
+    - purple-jobs-invent
 "@mokup/client@1.0.1":
   dir: packages/client
   intents:
     - client-request-semantics
     - fetch-duplicate-headers
     - upgrade-repoctl-toolchain
+"@mokup/client@2.0.0":
+  dir: packages/client
+  intents:
+    - node-22-runtime-dependencies
+    - purple-jobs-invent
 "@mokup/core@2.0.1":
   dir: packages/core
   intents:
@@ -33,6 +44,18 @@
     - service-worker-startup-listener
     - upgrade-repoctl-toolchain
     - vite-module-identities
+"@mokup/core@3.0.0":
+  dir: packages/core
+  intents:
+    - big-rings-tell
+    - node-22-runtime-dependencies
+    - purple-jobs-invent
+    - wise-deers-destroy
+"@mokup/msw@0.1.0":
+  dir: packages/msw
+  intents:
+    - big-rings-tell
+    - purple-jobs-invent
 "@mokup/playground@1.0.1":
   dir: packages/playground
   intents:
@@ -41,6 +64,12 @@
     - playground-request-copy
     - playground-static-build
     - upgrade-repoctl-toolchain
+"@mokup/playground@2.0.0":
+  dir: packages/playground
+  intents:
+    - big-rings-tell
+    - node-22-runtime-dependencies
+    - purple-jobs-invent
 "@mokup/query@1.0.1":
   dir: packages/query
   intents:
@@ -48,6 +77,11 @@
     - query-bodyless-responses
     - query-fetch-contracts
     - upgrade-repoctl-toolchain
+"@mokup/query@2.0.0":
+  dir: packages/query
+  intents:
+    - node-22-runtime-dependencies
+    - purple-jobs-invent
 "@mokup/runtime@2.1.0":
   dir: packages/runtime
   intents:
@@ -58,6 +92,15 @@
     - runtime-response-fields
     - runtime-route-preflight
     - upgrade-repoctl-toolchain
+"@mokup/runtime@3.0.0":
+  dir: packages/runtime
+  intents:
+    - big-rings-tell
+    - node-22-runtime-dependencies
+    - purple-jobs-invent
+    - quick-pigs-grin
+    - tall-grapes-collect
+    - weak-trees-wink
 "@mokup/server@2.0.1":
   dir: packages/server
   intents:
@@ -75,6 +118,12 @@
     - request-body-stream-lifecycle
     - server-response-cookies
     - upgrade-repoctl-toolchain
+"@mokup/server@3.0.0":
+  dir: packages/server
+  intents:
+    - big-rings-tell
+    - node-22-runtime-dependencies
+    - purple-jobs-invent
 "@mokup/shared@2.0.1":
   dir: packages/shared
   intents:
@@ -89,6 +138,12 @@
     - preflight-stream-lifecycle
     - request-body-stream-lifecycle
     - upgrade-repoctl-toolchain
+"@mokup/shared@3.0.0":
+  dir: packages/shared
+  intents:
+    - big-rings-tell
+    - node-22-runtime-dependencies
+    - purple-jobs-invent
 mokup@3.1.0:
   dir: packages/mokup
   intents:
@@ -113,3 +168,9 @@ mokup@3.1.0:
     - vite-preview-built-worker
     - vite-refresh-lifecycle
     - vite-worker-hmr-invalidation
+mokup@4.0.0:
+  dir: packages/mokup
+  intents:
+    - big-rings-tell
+    - node-22-runtime-dependencies
+    - purple-jobs-invent

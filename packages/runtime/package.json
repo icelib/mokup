@@ -1,7 +1,7 @@
 {
   "name": "@mokup/runtime",
   "type": "module",
-  "version": "2.1.0",
+  "version": "3.0.0",
   "description": "Cross-runtime mock matching and response handling for mokup.",
   "license": "MIT",
   "homepage": "https://mokup.icebreaker.top",

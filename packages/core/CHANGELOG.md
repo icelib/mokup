@@ -1,5 +1,28 @@
 # @mokup/core
 
+## 3.0.0
+
+### Major Changes
+
+- Require Node.js 22.12.0 or newer for all published packages and upgrade their dependencies to the latest stable releases. Node.js 20 is no longer supported.
+
+  Repository development and builds use the existing Node.js 24.15.0 baseline and repoctl release workflow. TypeScript remains on version 6 until the lint and Vue tooling supports TypeScript 7.
+
+### Minor Changes
+
+- Add standard HTTP mock sessions, network interception, contracts, scenarios, protocols, replay and diagnostics with migration and testing adapters.
+
+### Patch Changes
+
+- Update package repository metadata to icelib/mokup after the GitHub organization transfer.
+
+- Declare the optional Playground peer used by the default asset resolver while preserving custom resolver support.
+
+- Updated dependencies:
+  - @mokup/playground@2.0.0
+  - @mokup/runtime@3.0.0
+  - @mokup/shared@3.0.0
+
 ## 2.0.1
 
 ### Patch Changes
