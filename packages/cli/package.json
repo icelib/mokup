@@ -1,7 +1,7 @@
 {
   "name": "@mokup/cli",
   "type": "module",
-  "version": "2.1.0",
+  "version": "3.0.0",
   "description": "CLI for building mokup manifests and handlers.",
   "license": "MIT",
   "homepage": "https://mokup.icebreaker.top",

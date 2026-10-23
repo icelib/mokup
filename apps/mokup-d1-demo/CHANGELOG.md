@@ -1,5 +1,12 @@
 # mokup-d1-demo
 
+## 0.0.16
+
+### Patch Changes
+
+- Updated dependencies:
+  - mokup@4.0.0
+
 ## 0.0.15
 
 ### Patch Changes

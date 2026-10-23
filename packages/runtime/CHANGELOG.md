@@ -1,5 +1,30 @@
 # @mokup/runtime
 
+## 3.0.0
+
+### Major Changes
+
+- Require Node.js 22.12.0 or newer for all published packages and upgrade their dependencies to the latest stable releases. Node.js 20 is no longer supported.
+
+  Repository development and builds use the existing Node.js 24.15.0 baseline and repoctl release workflow. TypeScript remains on version 6 until the lint and Vue tooling supports TypeScript 7.
+
+### Minor Changes
+
+- Add standard HTTP mock sessions, network interception, contracts, scenarios, protocols, replay and diagnostics with migration and testing adapters.
+
+### Patch Changes
+
+- Update package repository metadata to icelib/mokup after the GitHub organization transfer.
+
+- Declare the URL matcher as a runtime dependency so clean installs and published consumers resolve HTTP handlers reliably.
+
+- Ignore response dates, hop-by-hop headers and HTTP reason phrases in live comparisons while preserving recorded metadata and application-level differences.
+
+- Separate GraphQL source generation from HTTP and WebSocket handlers while preserving the public GraphQL API and generated output.
+
+- Updated dependencies:
+  - @mokup/shared@3.0.0
+
 ## 2.1.0
 
 ### Minor Changes
