@@ -7,6 +7,7 @@ import os from 'node:os'
 import path from 'node:path'
 import process from 'node:process'
 import test from 'node:test'
+import { pathToFileURL } from 'node:url'
 import vm from 'node:vm'
 
 // Read the installed engine so removing or regressing the compatibility patch fails CI.
@@ -17,7 +18,7 @@ const bundle = (await readdir(dist)).find(name => /^commands-.*\.mjs$/.test(name
 assert.ok(bundle, 'the installed repoctl engine must contain a commands bundle')
 const source = await readFile(path.join(dist, bundle), 'utf8')
 const { minVersion, validRange, satisfies } = engineRequire('semver')
-const { createPackageFromTarballData } = await import(engineRequire.resolve('@arethetypeswrong/core'))
+const { createPackageFromTarballData } = await import(pathToFileURL(engineRequire.resolve('@arethetypeswrong/core')).href)
 const helpers = source.split('//#region src/commands/package-check/consumer/contracts.ts\n')[1]?.split('//#endregion')[0]
 assert.ok(helpers, 'the installed engine must validate declared optional peers and runtime resources')
 const entries = source.split('//#region src/commands/package-check/entries.ts\n')[1].split('//#endregion')[0]
