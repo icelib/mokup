@@ -1,7 +1,7 @@
 {
   "name": "@mokup/msw",
   "type": "module",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Import-level HTTP migration facade from MSW-style APIs to Mokup.",
   "license": "MIT",
   "homepage": "https://mokup.icebreaker.top",
@@ -40,7 +40,9 @@
   "types": "./dist/index.d.ts",
   "typesVersions": {
     "*": {
-      "http": ["dist/http.d.ts"],
+      "http": [
+        "dist/http.d.ts"
+      ],
       "node": [
         "dist/node.d.ts"
       ],

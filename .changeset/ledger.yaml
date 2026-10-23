@@ -174,3 +174,7 @@ mokup@4.0.0:
     - big-rings-tell
     - node-22-runtime-dependencies
     - purple-jobs-invent
+mokup@4.0.1:
+  dir: packages/mokup
+  intents:
+    - fast-spoons-judge

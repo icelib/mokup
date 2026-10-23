@@ -1,5 +1,12 @@
 # mokup-web-demo
 
+## 0.0.31
+
+### Patch Changes
+
+- Updated dependencies:
+  - mokup@4.0.1
+
 ## 0.0.30
 
 ### Patch Changes
