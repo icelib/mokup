@@ -4,6 +4,8 @@ import type { MokupPluginOptions } from '../shared/types'
 
 import type {
   WebpackCompiler,
+  WebpackDevMiddleware,
+  WebpackDevServer,
   WebpackPluginInstance,
 } from './plugin/types'
 import { cwd } from 'node:process'
@@ -29,12 +31,20 @@ const lifecycleBaseName = 'mokup-sw-lifecycle.js'
 
 export interface MokupWebpackPlugin extends WebpackPluginInstance {
   api: { getMockSession: (compiler: WebpackCompiler) => MockSession }
+  setupMiddlewares: (
+    middlewares: WebpackDevMiddleware[],
+    server: WebpackDevServer,
+  ) => WebpackDevMiddleware[]
 }
 
 export function createMokupWebpackPlugin(
   options: MokupPluginOptions = {},
 ): MokupWebpackPlugin {
   const controllers = new WeakMap<WebpackCompiler, ReturnType<typeof createWebpackController>>()
+  const middlewareSetups = new WeakMap<WebpackCompiler, (
+    middlewares: WebpackDevMiddleware[],
+    server: WebpackDevServer,
+  ) => WebpackDevMiddleware[]>()
   const normalizedOptions = normalizeMokupOptions(options)
   const optionList = normalizeOptions(normalizedOptions)
   const logEnabled = optionList.every(entry => entry.log !== false)
@@ -64,7 +74,16 @@ export function createMokupWebpackPlugin(
   if (swDiagnosticError) {
     throw swDiagnosticError
   }
+
+  const setupMiddlewares = (
+    middlewares: WebpackDevMiddleware[],
+    server: WebpackDevServer,
+  ) => {
+    const compiler = server.compiler
+    return compiler ? middlewareSetups.get(compiler)?.(middlewares, server) ?? middlewares : middlewares
+  }
   return {
+    setupMiddlewares,
     api: {
       getMockSession(compiler) {
         const session = controllers.get(compiler)?.getMockSession()
@@ -113,6 +132,18 @@ export function createMokupWebpackPlugin(
         { getSession: controller.getRequestSession },
       )
 
+      const devServer = compiler.options.devServer
+      const applyMiddlewares = (middlewares: WebpackDevMiddleware[], _server: WebpackDevServer) => {
+        controller.setup()
+        return [
+          { name: 'mokup-playground', middleware: playgroundMiddleware },
+          { name: 'mokup-sw', middleware: swMiddleware },
+          { name: 'mokup-mock', middleware: mockMiddleware },
+          ...middlewares,
+        ]
+      }
+      middlewareSetups.set(compiler, applyMiddlewares)
+
       compiler.hooks.beforeCompile.tapPromise(pluginName, async () => {
         await controller.ensureBuilt()
       })
@@ -124,18 +155,13 @@ export function createMokupWebpackPlugin(
         logger,
       }))
 
-      const devServer = compiler.options.devServer
       if (devServer) {
         const originalSetup = devServer.setupMiddlewares
         devServer.setupMiddlewares = (middlewares, server) => {
-          controller.setup()
-          const resolved = originalSetup ? originalSetup(middlewares, server) ?? middlewares : middlewares
-          resolved.unshift(
-            { name: 'mokup-playground', middleware: playgroundMiddleware },
-            { name: 'mokup-sw', middleware: swMiddleware },
-            { name: 'mokup-mock', middleware: mockMiddleware },
-          )
-          return resolved
+          const resolved = originalSetup && originalSetup !== setupMiddlewares
+            ? originalSetup(middlewares, server) ?? middlewares
+            : middlewares
+          return applyMiddlewares(resolved, server)
         }
       }
     },

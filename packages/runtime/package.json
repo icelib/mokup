@@ -1,7 +1,7 @@
 {
   "name": "@mokup/runtime",
   "type": "module",
-  "version": "3.0.0",
+  "version": "3.0.1",
   "description": "Cross-runtime mock matching and response handling for mokup.",
   "license": "MIT",
   "homepage": "https://mokup.icebreaker.top",
@@ -135,6 +135,6 @@
   "devDependencies": {
     "@hono/node-server": "catalog:",
     "@types/ws": "^8.18.2",
-    "ws": "^8.22.0"
+    "ws": "^8.22.1"
   }
 }

@@ -1,5 +1,14 @@
 # @mokup/playground
 
+## 2.0.1
+
+### Patch Changes
+
+- Refresh published package dependency and build inputs for the stable release.
+
+- Updated dependencies:
+  - @mokup/runtime@3.0.1
+
 ## 2.0.0
 
 ### Major Changes

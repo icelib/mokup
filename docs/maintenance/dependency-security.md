@@ -38,15 +38,49 @@ The following findings were reviewed on 2026-10-04. Registry audit metadata, pub
 - Trigger: attacker-controlled, deeply nested brace patterns reach recursive AST processing. Patterns can stay below the character limit while exhausting the call stack and terminating the process with an uncaught `RangeError`.
 - Mitigation: keep glob and proxy patterns controlled by repository configuration. If external patterns are accepted, limit both length and nesting depth before processing. A normal HTTP request does not by itself demonstrate that the vulnerable pattern processing is reachable.
 
+### Dependency audit review 2026-11-08
+
+The post-upgrade `pnpm audit --json` reports three advisories. The package manager continues to report them at their original severity; no audit suppression is configured.
+
+#### deepmerge 4.3.1 (low)
+
+- Advisory: [GHSA-gcqx-w48m-w2h4](https://github.com/advisories/GHSA-gcqx-w48m-w2h4).
+- Path: `mokup-vite-host-sw-demo → vite-plugin-pwa → workbox-build → @rollup/plugin-node-resolve → deepmerge`.
+- Status: npm reports no patched version and marks the candidate patched release unpublished. There is no installable upstream fix to select.
+- Trigger: prototype-polluting object keys reach `mergeObject()`; do not pass untrusted objects to this merge path.
+- Recheck: `pnpm view deepmerge versions --json` and `pnpm audit --json`.
+
+#### glob 11.1.0 and 13.0.6 (moderate)
+
+- Advisory: [GHSA-3g3m-2fjr-6pw4](https://github.com/advisories/GHSA-3g3m-2fjr-6pw4).
+- Paths: `mokup-vite-host-sw-demo → vite-plugin-pwa → workbox-build → glob@11`; and `repoctl → @icebreakers/monorepo → pacote/npm tooling → glob@13`.
+- Status: npm's first patched version is `14.0.2`. `glob@14.0.4`, brought in through `rimraf`, is already outside the affected range. The remaining glob 11 and 13 consumers have parent ranges that do not accept glob 14, so no cross-major override was applied.
+- Trigger: cancellation of an AbortSignal can fail to stop filesystem traversal. Keep glob roots and patterns controlled by repository tooling; avoid passing untrusted paths or patterns to these consumers.
+- Recheck: `pnpm why -r glob`, `pnpm view glob@11 version`, `pnpm view glob@13 version`, and `pnpm audit --json`.
+
+#### minimatch 10.2.6 (moderate)
+
+- Advisory: [GHSA-g3hv-75wg-m249](https://github.com/advisories/GHSA-g3hv-75wg-m249).
+- Paths include `mokup-docs → vitepress-plugin-llms → minimatch` and repoctl's ESLint/npm tooling. Other installed minimatch versions are 5.1.9 and 11.0.5; the installed 11.0.5 is patched.
+- Status: npm's first patched version is `11.0.1`; remaining consumers declare the 10.x line, so applying 11.x would cross their supported major range. No forced major override was applied.
+- Trigger: attacker-controlled glob patterns can cause globparts amplification. Keep patterns sourced from trusted repository configuration and bound them before matching if external input is introduced.
+- Recheck: `pnpm why -r minimatch`, `pnpm view minimatch@10 version`, and `pnpm audit --json`.
+
 ## Recheck Commands
 
 ```sh
 pnpm audit --json
 pnpm why -r http-cache-semantics
 pnpm why -r braces
+pnpm why -r deepmerge
+pnpm why -r glob
+pnpm why -r minimatch
 pnpm why -r esbuild
 pnpm view http-cache-semantics version
 pnpm view braces version
+pnpm view deepmerge versions --json
+pnpm view glob versions --json
+pnpm view minimatch versions --json
 pnpm view drizzle-kit@latest dependencies --json
 ```
 

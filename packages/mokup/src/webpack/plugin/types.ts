@@ -15,6 +15,7 @@ interface WebpackDevMiddleware {
 
 interface WebpackDevServer {
   app?: { use: (middleware: WebpackDevMiddleware['middleware']) => void }
+  compiler?: WebpackCompiler
 }
 
 interface WebpackCompilation {

@@ -75,6 +75,6 @@
     "mokup": "workspace:*"
   },
   "devDependencies": {
-    "msw": "3.0.2"
+    "msw": "3.0.4"
   }
 }
