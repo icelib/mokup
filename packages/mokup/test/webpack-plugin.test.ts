@@ -163,6 +163,7 @@ describe('mokup webpack plugin', () => {
     expect(config.plugins).toHaveLength(2)
     expect(config.plugins?.[0]).toBe('existing')
     expect(config.plugins?.[1]).toHaveProperty('apply')
-    expect(config.devServer).toEqual({ port: 8080 })
+    expect(config.devServer).toMatchObject({ port: 8080 })
+    expect(config.devServer?.setupMiddlewares).toEqual(expect.any(Function))
   })
 })

@@ -1,5 +1,11 @@
 # @mokup/shared
 
+## 3.0.1
+
+### Patch Changes
+
+- Refresh published package dependency and build inputs for the stable release.
+
 ## 3.0.0
 
 ### Major Changes

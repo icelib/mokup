@@ -1,5 +1,6 @@
 import type { Configuration } from 'webpack'
 import type { MokupPluginOptions } from './shared/types.js'
+import type { WebpackDevMiddleware, WebpackDevServer } from './webpack/plugin/types.js'
 import { createMokupWebpackPlugin } from './webpack/plugin.js'
 
 export type {
@@ -89,6 +90,13 @@ export function mokupWebpack(options: WebpackPluginOptionsInput = {}) {
     const devServer = config.devServer && typeof config.devServer === 'object'
       ? { ...config.devServer }
       : {}
+    const originalSetup = typeof devServer['setupMiddlewares'] === 'function'
+      ? devServer['setupMiddlewares'] as (middlewares: WebpackDevMiddleware[], server: WebpackDevServer) => WebpackDevMiddleware[] | undefined
+      : undefined
+    devServer['setupMiddlewares'] = (middlewares: WebpackDevMiddleware[], server: WebpackDevServer) => {
+      const resolved = originalSetup ? originalSetup(middlewares, server) ?? middlewares : middlewares
+      return plugin.setupMiddlewares(resolved, server)
+    }
     return {
       ...config,
       plugins: [...plugins, plugin],

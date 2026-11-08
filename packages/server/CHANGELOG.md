@@ -1,5 +1,17 @@
 # @mokup/server
 
+## 3.0.1
+
+### Patch Changes
+
+- Refresh published package dependency and build inputs for the stable release.
+
+- Updated dependencies:
+  - @mokup/core@3.0.1
+  - @mokup/playground@2.0.1
+  - @mokup/runtime@3.0.1
+  - @mokup/shared@3.0.1
+
 ## 3.0.0
 
 ### Major Changes

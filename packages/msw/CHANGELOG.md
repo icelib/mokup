@@ -1,5 +1,12 @@
 # @mokup/msw
 
+## 0.1.1
+
+### Patch Changes
+
+- Updated dependencies:
+  - mokup@4.0.1
+
 ## 0.1.0
 
 ### Minor Changes

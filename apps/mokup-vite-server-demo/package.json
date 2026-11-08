@@ -1,7 +1,7 @@
 {
   "name": "mokup-vite-server-demo",
   "type": "module",
-  "version": "0.0.12",
+  "version": "0.0.13",
   "private": true,
   "homepage": "https://mokup.icebreaker.top",
   "engines": {
