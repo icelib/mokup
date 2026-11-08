@@ -82,8 +82,10 @@ for (const name of ['typed', 'javascript']) {
     const relative = path.relative(await realpath(command.cwd), compiler)
     assert.ok(relative && !relative.startsWith('..') && !path.isAbsolute(relative), 'TypeScript must run inside the isolated consumer')
     const consumerManifest = JSON.parse(await readFile(path.join(command.cwd, 'package.json'), 'utf8'))
-    assert.equal(consumerManifest.devDependencies.typescript, typescript)
-    assert.equal(JSON.parse(await readFile(path.join(command.cwd, 'node_modules/typescript/package.json'), 'utf8')).version, typescript)
+    const compilerDependency = Object.entries(consumerManifest.devDependencies ?? {}).find(([alias, version]) => alias.startsWith('repoctl-consumer-typescript') && version === `npm:typescript@${typescript}`)
+    assert.ok(compilerDependency, 'Consumer must install the source TypeScript compiler through repoctl\'s reserved alias')
+    const compilerAlias = compilerDependency[0]
+    assert.equal(JSON.parse(await readFile(path.join(command.cwd, `node_modules/${compilerAlias}/package.json`), 'utf8')).version, typescript)
     assert.deepEqual(command.args.slice(command.args.indexOf('--skipLibCheck'), command.args.indexOf('--skipLibCheck') + 2), ['--skipLibCheck', 'false'])
     const packedManifest = JSON.parse(await readFile(path.join(command.cwd, 'node_modules/@mokup-snapshot-fixture/typed/package.json'), 'utf8'))
     assert.equal(packedManifest.devDependencies, undefined, 'Consumer test tooling must not leak into the published package')

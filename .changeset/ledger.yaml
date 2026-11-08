@@ -70,6 +70,10 @@
     - big-rings-tell
     - node-22-runtime-dependencies
     - purple-jobs-invent
+"@mokup/playground@2.0.1":
+  dir: packages/playground
+  intents:
+    - fresh-deps-ready
 "@mokup/query@1.0.1":
   dir: packages/query
   intents:
@@ -124,6 +128,10 @@
     - big-rings-tell
     - node-22-runtime-dependencies
     - purple-jobs-invent
+"@mokup/server@3.0.1":
+  dir: packages/server
+  intents:
+    - fresh-deps-ready
 "@mokup/shared@2.0.1":
   dir: packages/shared
   intents:
@@ -144,6 +152,10 @@
     - big-rings-tell
     - node-22-runtime-dependencies
     - purple-jobs-invent
+"@mokup/shared@3.0.1":
+  dir: packages/shared
+  intents:
+    - fresh-deps-ready
 mokup@3.1.0:
   dir: packages/mokup
   intents:
@@ -174,3 +186,8 @@ mokup@4.0.0:
     - big-rings-tell
     - node-22-runtime-dependencies
     - purple-jobs-invent
+mokup@4.0.1:
+  dir: packages/mokup
+  intents:
+    - fast-spoons-judge
+    - fresh-deps-ready

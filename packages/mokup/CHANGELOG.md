@@ -1,5 +1,21 @@
 # mokup
 
+## 4.0.1
+
+### Patch Changes
+
+- Declare the browser Service Worker export as a runtime asset for isolated package verification.
+
+- Refresh published dependencies and preserve Mokup middleware when webpack-cli snapshots devServer options before plugin setup.
+
+- Updated dependencies:
+  - @mokup/cli@3.0.1
+  - @mokup/core@3.0.1
+  - @mokup/playground@2.0.1
+  - @mokup/runtime@3.0.1
+  - @mokup/server@3.0.1
+  - @mokup/shared@3.0.1
+
 ## 4.0.0
 
 ### Major Changes

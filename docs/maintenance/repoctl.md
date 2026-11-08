@@ -1,17 +1,17 @@
 # repoctl maintenance
 
-The repository uses repoctl 6.0.1, pnpm 12.11.2 and Node.js 24.22.1. Development engines stay within `>=24.22.1 <25`; published packages retain `>=22.12.0`. `.node-version` and `.nvmrc` pin the development runtime. Dependency-only maintenance does not change package versions or consume pending release intents.
+The repository uses repoctl 6.4.4, pnpm 12.11.2 and Node.js 24.22.1. Development engines stay within `>=24.22.1 <25`; published packages retain `>=22.12.0`. `.node-version` and `.nvmrc` pin the development runtime. Dependency-only maintenance does not change package versions or consume pending release intents.
 
 The global `minimumReleaseAge: 1440` policy remains enabled. This migration excludes only eight reviewed exact releases through `minimumReleaseAgeExclude`:
 
-- `repoctl@6.0.1`
-- `@icebreakers/monorepo@6.0.1`
-- `@icebreakers/monorepo-templates@3.0.1`
-- `@icebreakers/commitlint-config@4.1.4`
-- `@icebreakers/eslint-config@8.0.11`
-- `@icebreakers/stylelint-config@5.1.5`
-- `postcss-tailwindcss@3.1.5`
-- `stylelint-plugin-tailwindcss@3.1.5`
+- `repoctl@6.4.4`
+- `@icebreakers/monorepo@6.4.4`
+- `@icebreakers/monorepo-templates@3.2.2`
+- `@icebreakers/commitlint-config@4.1.5`
+- `@icebreakers/eslint-config@8.0.15`
+- `@icebreakers/stylelint-config@6.0.1`
+- `postcss-tailwindcss@3.1.6`
+- `stylelint-plugin-tailwindcss@3.2.0`
 
 Other dependencies and future versions still wait 24 hours. Do not replace these exceptions with unversioned package names or disable the global policy during later upgrades.
 
@@ -37,7 +37,7 @@ Create intents with `pnpm change` and inspect them with `pnpm exec repo release 
 
 `release:check` composes `release:check:build`, `release:check:quality` and `release:check:runtime` in order. repoctl runs the same three quality scripts separately because nightly limits each subprocess to 10 minutes. The split retains migration guards, line checks, release tooling tests, types, all builds, lint, unit/type tests, browser/D1 tests and packed-consumer checks.
 
-The existing `repoctl-release-state` branch remains the checkpoint store. Version-scoped patches preserve supported `workspace:^`/`workspace:~` peer ranges and early plan validation; independent state-branch initialization is now supplied by upstream. Keep `pnpm run test:release-tools` passing before changing these patches.
+The existing `repoctl-release-state` branch remains the checkpoint store. repoctl 6.4.4 includes the workspace peer-range validation, early release-plan validation, and independent state-branch initialization previously split between upstream and the local 6.0.1 patch. The patch mapping and obsolete patch file have been removed. Keep `pnpm run test:release-tools` passing when upgrading repoctl.
 
 Preserve checkpoints and source identity when recovering interrupted npm publication. A manually supplied `source-sha` must match the workflow run commit; do not override `GITHUB_SHA` or move tags to recover a run. `mode=reconcile` repairs GitHub tags and release metadata only: a successful reconciliation does not finalize the publishing checkpoint or produce a release completion record, so it does not trigger the official website. Resume the original source through the publish/finalize lifecycle to produce that record; if the website alone failed after record creation, retry the Docs workflow with the existing record ID. Prerelease version artifacts must still be prepared and committed locally before dispatch; see [Contributing](../../CONTRIBUTING.md#release-workflow).
 
@@ -47,9 +47,9 @@ The Release workflow runs nightly at 03:17 Asia/Shanghai (`main` only) and skips
 
 Nightly snapshots include every public workspace package. They run the configured quality checks, build from committed source outside the checkout and publish through npm OIDC/provenance. The npm tag is `snapshot-nightly`; versions include their source/build identity. They do not update `latest`, stable versions, changelogs, release intents or Git tags.
 
-The version-scoped repoctl 6.0.1 patch also corrects its isolated consumer checks before and after publication: consumers install the source workspace's exact TypeScript version and the external optional peers declared by their runtime dependency closure. Package development dependencies are not copied into consumers, and declaration checking keeps `skipLibCheck: false`. This avoids using the older compiler bundled privately by Are the Types Wrong for the independent TypeScript check.
+repoctl 6.4.4 checks isolated consumers before and after publication: consumers install the source workspace's exact TypeScript version and the external optional peers declared by their runtime dependency closure. Package development dependencies are not copied into consumers, and declaration checking keeps `skipLibCheck: false`. The consumer test reserves a unique TypeScript alias so it cannot overwrite a package's own dependency name. This avoids using the older compiler bundled privately by Are the Types Wrong for the independent TypeScript check.
 
-`mokup` declares `repoctl.packageCheck.runtimeAssets: ["./mockServiceWorker.js"]` in its published manifest. The browser Service Worker is a copied resource: checks verify its exact export resolution, package boundary, existence and JavaScript syntax instead of executing its browser globals in Node. Other runtime exports must still import successfully. This manifest change has a patch release intent; the tool upgrade itself does not change product versions. `test:release-tools` exercises the original 25 release regressions, optional-peer and asset contracts, and a real isolated snapshot with both valid and invalid declarations.
+`mokup` declares `repoctl.packageCheck.runtimeAssets: ["./mockServiceWorker.js"]` in its published manifest. The browser Service Worker is a copied resource: checks verify its exact export resolution, package boundary, existence and JavaScript syntax instead of executing its browser globals in Node. Other runtime exports must still import successfully. `test:release-tools` exercises release planning and checkpoint regressions, optional-peer and asset contracts, and a real isolated snapshot with both valid and invalid declarations.
 
 ```sh
 pnpm add -D mokup@snapshot-nightly

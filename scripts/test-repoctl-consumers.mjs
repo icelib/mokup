@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { spawnSync } from 'node:child_process'
+import { execFileSync, spawnSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import { mkdir, mkdtemp, readdir, readFile, rm, symlink, writeFile } from 'node:fs/promises'
 import { createRequire } from 'node:module'
@@ -17,24 +17,40 @@ const dist = path.join(path.dirname(repoRequire.resolve('@icebreakers/monorepo/p
 const bundle = (await readdir(dist)).find(name => /^commands-.*\.mjs$/.test(name))
 assert.ok(bundle, 'the installed repoctl engine must contain a commands bundle')
 const source = await readFile(path.join(dist, bundle), 'utf8')
-const { minVersion, validRange, satisfies } = engineRequire('semver')
+const { minVersion, subset, validRange, satisfies } = engineRequire('semver')
 const { createPackageFromTarballData } = await import(pathToFileURL(engineRequire.resolve('@arethetypeswrong/core')).href)
-const helpers = source.split('//#region src/commands/package-check/consumer/contracts.ts\n')[1]?.split('//#endregion')[0]
-assert.ok(helpers, 'the installed engine must validate declared optional peers and runtime resources')
-const entries = source.split('//#region src/commands/package-check/entries.ts\n')[1].split('//#endregion')[0]
-const dependencies = source.split('//#region src/commands/package-check/dependencies.ts\n')[1].split('//#endregion')[0]
-const identity = source.split('//#region src/commands/release/snapshot/identity.ts\n')[1].split('//#endregion')[0]
-const context = vm.createContext({ minVersion, validRange, path, path$1: path, readFile, createHash, createPackageFromTarballData })
-vm.runInContext(`${dependencies}\n${helpers}\n${entries}\n${identity}`, context)
-const { consumerOptionalPeers, consumerEntries, consumerAssetSource, nightlyConsumerManifests, snapshotMetadata } = context
+function section(name) {
+  const marker = `// ${name}\n`
+  const start = source.indexOf(marker)
+  assert.notEqual(start, -1, `the installed engine must contain ${name}`)
+  const bodyStart = start + marker.length
+  const next = source.indexOf('\n// src/', bodyStart)
+  return source.slice(bodyStart, next === -1 ? source.length : next)
+}
+const runtimeAssets = section('src/commands/package-check/consumer/runtime-assets.ts')
+const runtimeContextsSource = section('src/commands/package-check/consumer/runtime-contexts/source.ts')
+const runtimeContextsVitest = section('src/commands/package-check/consumer/runtime-contexts/vitest.ts')
+const runtimeContexts = section('src/commands/package-check/consumer/runtime-contexts/index.ts')
+const dependencies = section('src/commands/package-check/dependencies.ts')
+const consumerDependencies = section('src/commands/package-check/consumer/dependencies.ts')
+const optionalPeers = section('src/commands/package-check/consumer/optional-peers.ts')
+const platform = section('src/commands/package-check/consumer/platform.ts')
+const runtimeClosure = section('src/commands/package-check/consumer/runtime-closure.ts')
+const entries = section('src/commands/package-check/entries.ts')
+const identity = section('src/commands/release/snapshot/identity.ts')
+const manifests = section('src/commands/release/nightly/consumer/manifests.ts')
+const context = vm.createContext({ minVersion, subset, validRange, path, path$1: path, process, execFileSync, readFile, createHash, createPackageFromTarballData })
+vm.runInContext(`${dependencies}\n${consumerDependencies}\n${runtimeAssets}\n${runtimeContextsSource}\n${runtimeContextsVitest}\n${runtimeContexts}\n${platform}\n${runtimeClosure}\n${optionalPeers}\n${entries}\n${identity}\n${manifests}`, context)
+const { consumerRuntimeClosure, consumerOptionalPeers, consumerEntries, consumerAssetSource, nightlyConsumerManifests, snapshotMetadata } = context
 const plain = value => JSON.parse(JSON.stringify(value))
 
 test('optional peers follow the tested runtime closure and ignore dev dependencies and unrelated packages', () => {
   const root = { name: 'subject', dependencies: { core: '1.0.0' }, devDependencies: { unrelated: '1.0.0' } }
-  const core = { name: 'core', dependencies: { subject: '1.0.0' }, peerDependencies: { vite: '^7 || ^8', required: '^1', playground: '1.0.0' }, peerDependenciesMeta: { vite: { optional: true }, playground: { optional: true } } }
+  const core = { name: 'core', dependencies: { subject: '1.0.0' }, peerDependencies: { vite: '^7 || ^8', required: '^1' }, peerDependenciesMeta: { vite: { optional: true } } }
   const playground = { name: 'playground' }
   const unrelated = { name: 'unrelated', peerDependencies: { rogue: '*' }, peerDependenciesMeta: { rogue: { optional: true } } }
-  const result = plain(consumerOptionalPeers([root], [root, core, playground, unrelated]))
+  const manifests = [root, core, playground, unrelated]
+  const result = plain(consumerOptionalPeers(consumerRuntimeClosure([root], manifests), new Map()))
   assert.deepEqual(Object.keys(result), ['vite'])
   assert.equal(satisfies('8.3.5', result.vite), true)
 })
@@ -42,24 +58,26 @@ test('optional peers follow the tested runtime closure and ignore dev dependenci
 test('optional peer range intersections preserve all consumers instead of silently overwriting ranges', () => {
   const first = { name: 'first', peerDependencies: { vite: '^6 || ^8' }, peerDependenciesMeta: { vite: { optional: true } } }
   const second = { name: 'second', peerDependencies: { vite: '>=8.2 <9' }, peerDependenciesMeta: { vite: { optional: true } } }
-  const result = plain(consumerOptionalPeers([first, second], [first, second]))
+  const manifests = [first, second]
+  const result = plain(consumerOptionalPeers(consumerRuntimeClosure(manifests, manifests), new Map()))
   assert.equal(satisfies('8.3.5', result.vite), true)
   assert.equal(satisfies('8.1.0', result.vite), false)
   assert.equal(satisfies('6.1.0', result.vite), false)
   second.peerDependencies.vite = '^5'
-  assert.throws(() => consumerOptionalPeers([first, second], [first, second]), /incompatible declared ranges/)
+  assert.throws(() => consumerOptionalPeers(consumerRuntimeClosure(manifests, manifests), new Map()), /incompatible declared ranges/)
 })
 
 test('optional peer npm aliases retain registry identity', () => {
   const manifest = { name: 'subject', peerDependencies: { framework: 'npm:vite@^8' }, peerDependenciesMeta: { framework: { optional: true } } }
-  assert.match(consumerOptionalPeers([manifest], [manifest]).framework, /^npm:vite@/)
+  assert.match(consumerOptionalPeers(consumerRuntimeClosure([manifest], [manifest]), new Map()).framework, /^npm:vite@/)
 })
 
 test('required peers constrain the optional integration provider in the same runtime closure', () => {
   const first = { name: 'first', dependencies: { second: '1.0.0' }, peerDependencies: { vite: '^6 || ^8' }, peerDependenciesMeta: { vite: { optional: true } } }
   const second = { name: 'second', peerDependencies: { vite: '^6' } }
-  assert.equal(satisfies('8.3.5', consumerOptionalPeers([first], [first, second]).vite), false)
-  assert.equal(satisfies('6.1.0', consumerOptionalPeers([first], [first, second]).vite), true)
+  const manifests = [first, second]
+  assert.equal(satisfies('8.3.5', consumerOptionalPeers(consumerRuntimeClosure([first], manifests), new Map()).vite), false)
+  assert.equal(satisfies('6.1.0', consumerOptionalPeers(consumerRuntimeClosure([first], manifests), new Map()).vite), true)
 })
 
 const workerManifest = {
@@ -70,8 +88,8 @@ const workerManifest = {
 }
 test('only the explicitly declared worker export is a resource and type checking remains enabled', () => {
   const result = plain(consumerEntries(workerManifest, ['index.mjs', 'worker.mjs']))
-  assert.equal(result.find(entry => entry.subpath === '.').asset, false)
-  assert.deepEqual(result.find(entry => entry.subpath === './worker.js'), { subpath: './worker.js', target: './worker.mjs', format: 'esm', runtime: true, asset: true })
+  assert.equal(result.find(entry => entry.subpath === '.').asset, undefined)
+  assert.deepEqual(result.find(entry => entry.subpath === './worker.js'), { subpath: './worker.js', target: './worker.mjs', format: 'esm', runtime: true, asset: true, typecheck: false })
 })
 
 test('unknown, missing, wildcard and non-JavaScript resource declarations fail validation', () => {
@@ -112,11 +130,11 @@ test('worker resources are resolved and syntax checked without executing browser
 
 test('both consumer stages keep resource parsing and strict declaration validation', () => {
   for (const region of ['src/commands/package-check/consumer.ts', 'src/commands/release/nightly/consumer/entries.ts']) {
-    const code = source.split(`//#region ${region}\n`)[1].split('//#endregion')[0]
-    assert.match(code, /consumerAssetSource\(entry, specifier, installed\)/)
+    const code = section(region)
+    assert.match(code, /consumerRuntimeInvocation\(entry, specifier, directory, installed\)/)
     assert.match(code, /\["--check", path\$1\.resolve\(installed, entry\.target\)\]/)
     assert.match(code, /"--skipLibCheck",\s*"false"/)
-    assert.match(code, /if \(checkTypes\)/)
+    assert.match(code, /entry\.typecheck !== false/)
   }
 })
 
